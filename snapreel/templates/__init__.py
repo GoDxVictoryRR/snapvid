@@ -1,0 +1,1 @@
+"""SnapReel scene rendering templates."""
