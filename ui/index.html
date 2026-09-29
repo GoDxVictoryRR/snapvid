@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapReel — Agentic AI Video Maker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <!-- Top Navbar / Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-logo">🎬</div>
+      <div class="brand-info">
+        <h1 class="brand-title">SnapReel</h1>
+        <span class="brand-sub">Agentic Video Maker</span>
+      </div>
+    </div>
+    <div class="header-badges">
+      <div class="badge npu-badge" id="npu-badge" title="Hardware Acceleration Status">
+        <span class="pulse-dot"></span>
+        <span id="badge-npu-text">Snapdragon NPU Ready</span>
+      </div>
+      <button id="open-settings-btn" class="icon-btn settings-btn" title="Settings & Hardware">
+        <span class="gear-icon">⚙️</span>
+        <span class="settings-btn-label">Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main 2-Column Content Layout -->
+  <main class="main-layout">
+    <!-- Left / Center Column (Primary Flow) -->
+    <div class="primary-column">
+      <!-- Input Card -->
+      <section class="card input-card">
+        <div class="card-header">
+          <label for="topic" class="input-label">What would you like to explain?</label>
+          <span class="hint-label">Self-healing multi-scene agent</span>
+        </div>
+        <div class="input-group">
+          <textarea
+            id="topic"
+            placeholder="e.g. How does photosynthesis turn light into chemical energy?"
+            rows="3"
+          ></textarea>
+          <div class="generate-bar">
+            <button id="generate-btn" class="btn-primary">
+              <span class="btn-text">Generate Video</span>
+              <span class="btn-spinner" hidden></span>
+            </button>
+            <div id="live-llm-meta" class="live-meta">
+              <span id="active-model-tag" class="meta-tag">Model: Ollama / qwen2.5:3b</span>
+              <span id="active-voice-tag" class="meta-tag">Voice: Auto</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-tags">
+          <span class="tag-label">Try:</span>
+          <button type="button" class="tag-btn" data-topic="How does photosynthesis turn sunlight into sugar in 60s">Photosynthesis</button>
+          <button type="button" class="tag-btn" data-topic="Explain Neural Networks and backpropagation simply">Neural Networks</button>
+          <button type="button" class="tag-btn" data-topic="Why Snapdragon NPU acceleration enables offline on-device AI">Snapdragon NPU</button>
+          <button type="button" class="tag-btn" data-topic="How quantum computers use superposition and entanglement">Quantum Qubits</button>
+        </div>
+      </section>
+
+      <!-- Live Agent Activity Panel (Streams SSE from /events/{job_id}) -->
+      <section id="agent-panel" class="card agent-card" hidden>
+        <div class="agent-header">
+          <div class="agent-title-wrap">
+            <span class="agent-icon">🤖</span>
+            <h3>Agent Activity</h3>
+          </div>
+          <div class="agent-actions">
+            <span id="agent-status-badge" class="badge running">Running</span>
+          </div>
+        </div>
+        <div id="agent-log" class="agent-log" role="log" aria-live="polite">
+          <!-- Real-time agent event stream lines appended here -->
+        </div>
+      </section>
+
+      <!-- Progress / Loading Panel -->
+      <section id="status-panel" class="card status-card" hidden>
+        <div class="status-header">
+          <span class="status-indicator"></span>
+          <h3 id="status-title">Generating Video</h3>
+        </div>
+        <div class="progress-bar-container">
+          <div id="progress-fill" class="progress-bar-fill"></div>
+        </div>
+        <div class="status-details">
+          <p id="status-text">Planning scenes with local LLM...</p>
+          <span id="progress-percent">0%</span>
+        </div>
+      </section>
+
+      <!-- Result Panel -->
+      <section id="result-panel" class="card result-card" hidden>
+        <div class="result-header">
+          <div>
+            <h2>Your Video is Ready!</h2>
+            <p id="result-topic" class="result-topic-sub"></p>
+          </div>
+          <span class="res-badge">1280x720 • 30 FPS</span>
+        </div>
+        <div class="video-wrapper">
+          <video id="preview" controls width="640" preload="metadata"></video>
+        </div>
+        <div class="actions-row">
+          <a id="download-link" class="btn-primary download-btn" download>
+            <span>⬇️ Download MP4</span>
+          </a>
+          <button id="create-another-btn" class="btn-secondary">
+            Make Another Video
+          </button>
+        </div>
+      </section>
+
+      <!-- Error Panel -->
+      <section id="error-panel" class="card error-card" hidden>
+        <div class="error-icon">⚠️</div>
+        <div class="error-content">
+          <h3>Generation Failed</h3>
+          <p id="error-text">An error occurred during processing.</p>
+          <button id="retry-btn" class="btn-secondary">Try Again</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column (Sidebar: History & Quick Benchmarks) -->
+    <aside class="sidebar-column">
+      <div class="card sidebar-card history-card">
+        <div class="sidebar-header">
+          <span class="sidebar-icon">🕒</span>
+          <h3>Recent Videos</h3>
+        </div>
+        <div id="history-list" class="history-list">
+          <div class="history-empty">No videos generated yet. Create one on the left!</div>
+        </div>
+      </div>
+
+      <div class="card sidebar-card benchmark-card">
+        <div class="sidebar-header">
+          <span class="sidebar-icon">⚡</span>
+          <h3>NPU Benchmarks</h3>
+        </div>
+        <div class="benchmark-stats" id="benchmark-stats">
+          <div class="bench-row">
+            <span class="bench-label">Device</span>
+            <span class="bench-val" id="bench-device">Snapdragon X Elite</span>
+          </div>
+          <div class="bench-row">
+            <span class="bench-label">LLM Latency</span>
+            <span class="bench-val" id="bench-llm">~2.1s / scene</span>
+          </div>
+          <div class="bench-row">
+            <span class="bench-label">Throughput</span>
+            <span class="bench-val highlight" id="bench-tps">22 tok/s</span>
+          </div>
+          <div class="bench-row">
+            <span class="bench-label">Renderer</span>
+            <span class="bench-val" id="bench-fps">30 fps native</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Slide-In Settings Drawer (Right Side) -->
+  <div id="settings-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="settings-drawer" class="settings-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-title-wrap">
+        <span class="gear-icon">⚙️</span>
+        <h2>Settings & Engine</h2>
+      </div>
+      <button id="close-settings-btn" class="close-btn" title="Close Settings">&times;</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 1. LLM Provider -->
+      <div class="form-group">
+        <label for="setting-provider">LLM Provider</label>
+        <select id="setting-provider" class="form-select">
+          <option value="ollama">Ollama (Local)</option>
+          <option value="geniex">Qualcomm GenieX (NPU)</option>
+          <option value="llamacpp">llama.cpp (Local)</option>
+          <option value="openai">OpenAI (Cloud)</option>
+          <option value="groq">Groq (Cloud Free & Fast)</option>
+          <option value="together">Together AI</option>
+          <option value="mistral">Mistral AI</option>
+          <option value="custom">Custom Endpoint</option>
+        </select>
+        <span class="field-hint">Select local NPU/LLM or cloud provider</span>
+      </div>
+
+      <!-- Base URL -->
+      <div class="form-group" id="group-base-url">
+        <label for="setting-base-url">LLM Base URL</label>
+        <input type="text" id="setting-base-url" class="form-input" placeholder="http://localhost:11434/v1">
+      </div>
+
+      <!-- 2. Model Name -->
+      <div class="form-group">
+        <label for="setting-model">Model Name</label>
+        <input type="text" id="setting-model" class="form-input" placeholder="qwen2.5:3b">
+      </div>
+
+      <!-- 3. API Key -->
+      <div class="form-group">
+        <label for="setting-api-key">API Key (optional)</label>
+        <input type="password" id="setting-api-key" class="form-input" placeholder="Leave blank for local backends">
+        <span class="field-hint">Stored securely in your browser's localStorage only</span>
+      </div>
+
+      <!-- Connection Test Button -->
+      <div class="connection-test-row">
+        <button id="test-llm-btn" type="button" class="btn-secondary test-btn">
+          Test Connection
+        </button>
+        <span id="test-llm-status" class="test-status"></span>
+      </div>
+
+      <hr class="drawer-divider">
+
+      <!-- 4. Voice Engine & Voice -->
+      <div class="form-group">
+        <label for="setting-tts-engine">Voice Engine</label>
+        <select id="setting-tts-engine" class="form-select">
+          <option value="auto">Auto-detect (Kokoro → Edge → SAPI)</option>
+          <option value="kokoro">Kokoro TTS (Offline Neural 82M)</option>
+          <option value="edge">Edge TTS (Microsoft Neural, Free)</option>
+          <option value="sapi">Windows SAPI (Offline System Default)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="setting-tts-voice">Voice</label>
+        <select id="setting-tts-voice" class="form-select">
+          <!-- Dynamic options populated by JS -->
+        </select>
+      </div>
+
+      <hr class="drawer-divider">
+
+      <!-- 5. Quality Critic Pass -->
+      <div class="form-group checkbox-group">
+        <label class="toggle-switch">
+          <input type="checkbox" id="setting-quality-pass" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <div class="toggle-label-wrap">
+          <span class="toggle-title">AI Quality Review Critic</span>
+          <span class="field-hint">Runs a 2nd autonomous critic pass to polish narration & pacing</span>
+        </div>
+      </div>
+
+      <div class="drawer-footer">
+        <button id="save-settings-btn" class="btn-primary w-full">Save & Apply</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" hidden></div>
+
+  <footer class="footer">
+    <p>SnapReel • Pure Python Renderer • Zero Cloud Runtime Dependencies • Qualcomm AI Hub Verified</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
