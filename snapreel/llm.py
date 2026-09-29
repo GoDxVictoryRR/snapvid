@@ -170,19 +170,32 @@ def test_llm_connection(base_url: str, model: str, api_key: str = "") -> dict[st
     if not base_url or not model:
         return {"ok": False, "error": "base_url and model are required"}
 
-    url = base_url.rstrip("/") + "/chat/completions"
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    # Fast probe: try GET /models first to verify endpoint responsiveness without forcing cold weight loading
+    models_url = base_url.rstrip("/") + "/models"
+    t0 = time.perf_counter()
+    try:
+        resp = requests.get(models_url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            return {"ok": True, "model": model, "latency_ms": latency_ms}
+    except Exception:
+        pass
+
+    # Fallback probe: try chat/completions with configurable timeout for cold-start models
+    chat_url = base_url.rstrip("/") + "/chat/completions"
     body = {
         "model": model,
         "messages": [{"role": "user", "content": "ping"}],
         "max_tokens": 5,
     }
+    timeout_sec = int(os.environ.get("LLM_TIMEOUT", 60))
     t0 = time.perf_counter()
     try:
-        resp = requests.post(url, json=body, headers=headers, timeout=10)
+        resp = requests.post(chat_url, json=body, headers=headers, timeout=timeout_sec)
         resp.raise_for_status()
         latency_ms = int((time.perf_counter() - t0) * 1000)
         return {"ok": True, "model": model, "latency_ms": latency_ms}
