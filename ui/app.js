@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const PROVIDER_PRESETS = {
     ollama: {
       url: "http://localhost:11434/v1",
-      model: "qwen2.5:3b",
+      model: "granite4.2:3b",
     },
     geniex: {
       url: "http://localhost:8080/v1",
@@ -71,6 +71,14 @@ document.addEventListener("DOMContentLoaded", () => {
     llamacpp: {
       url: "http://localhost:8080/v1",
       model: "default",
+    },
+    nvidia: {
+      url: "https://integrate.api.nvidia.com/v1",
+      model: "meta/llama-3.1-8b-instruct",
+    },
+    gemini: {
+      url: "https://generativelanguage.googleapis.com/v1beta/openai",
+      model: "gemini-1.5-flash",
     },
     openai: {
       url: "https://api.openai.com/v1",
@@ -124,18 +132,42 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function loadSettings() {
-    const provider = localStorage.getItem("sr_provider") || "ollama";
+  async function loadSettings() {
+    let serverConfig = null;
+    try {
+      const res = await fetch("/config");
+      if (res.ok) {
+        serverConfig = await res.json();
+      }
+    } catch (_) {}
+
+    const savedProvider = localStorage.getItem("sr_provider");
+    let provider = savedProvider;
+    if (!provider && serverConfig) {
+      const url = (serverConfig.llm_base_url || "").toLowerCase();
+      if (url.includes("nvidia.com")) provider = "nvidia";
+      else if (url.includes("generativelanguage.googleapis.com")) provider = "gemini";
+      else if (url.includes("openai.com")) provider = "openai";
+      else if (url.includes("groq.com")) provider = "groq";
+      else if (url.includes("together.xyz")) provider = "together";
+      else if (url.includes("mistral.ai")) provider = "mistral";
+      else if (url.includes(":8080")) provider = "geniex";
+      else provider = "ollama";
+    }
+    if (!provider) provider = "ollama";
     settingProvider.value = provider;
 
     const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.ollama;
-    settingBaseUrl.value = localStorage.getItem("sr_base_url") || preset.url;
-    settingModel.value = localStorage.getItem("sr_model") || preset.model;
-    settingApiKey.value = localStorage.getItem("sr_api_key") || "";
+    const defaultUrl = (serverConfig && !savedProvider) ? serverConfig.llm_base_url : preset.url;
+    const defaultModel = (serverConfig && !savedProvider) ? serverConfig.llm_model : preset.model;
 
-    const ttsEngine = localStorage.getItem("sr_tts_engine") || "auto";
+    settingBaseUrl.value = localStorage.getItem("sr_base_url") ?? defaultUrl;
+    settingModel.value = localStorage.getItem("sr_model") ?? defaultModel;
+    settingApiKey.value = localStorage.getItem("sr_api_key") ?? (serverConfig?.llm_api_key || "");
+
+    const ttsEngine = localStorage.getItem("sr_tts_engine") || serverConfig?.tts_engine || "auto";
     settingTtsEngine.value = ttsEngine;
-    const ttsVoice = localStorage.getItem("sr_tts_voice") || "auto";
+    const ttsVoice = localStorage.getItem("sr_tts_voice") || serverConfig?.tts_voice || "auto";
     updateVoiceDropdown(ttsEngine, ttsVoice);
 
     const quality = localStorage.getItem("sr_quality_pass");
@@ -144,14 +176,36 @@ document.addEventListener("DOMContentLoaded", () => {
     updateHeaderBadges();
   }
 
-  function saveSettings() {
-    localStorage.setItem("sr_provider", settingProvider.value);
-    localStorage.setItem("sr_base_url", settingBaseUrl.value.trim());
-    localStorage.setItem("sr_model", settingModel.value.trim());
-    localStorage.setItem("sr_api_key", settingApiKey.value.trim());
-    localStorage.setItem("sr_tts_engine", settingTtsEngine.value);
-    localStorage.setItem("sr_tts_voice", settingTtsVoice.value);
-    localStorage.setItem("sr_quality_pass", settingQualityPass.checked ? "true" : "false");
+  async function saveSettings() {
+    const provider = settingProvider.value;
+    const baseUrl = settingBaseUrl.value.trim();
+    const model = settingModel.value.trim();
+    const apiKey = settingApiKey.value.trim();
+    const ttsEngine = settingTtsEngine.value;
+    const ttsVoice = settingTtsVoice.value;
+    const qualityPass = settingQualityPass.checked;
+
+    localStorage.setItem("sr_provider", provider);
+    localStorage.setItem("sr_base_url", baseUrl);
+    localStorage.setItem("sr_model", model);
+    localStorage.setItem("sr_api_key", apiKey);
+    localStorage.setItem("sr_tts_engine", ttsEngine);
+    localStorage.setItem("sr_tts_voice", ttsVoice);
+    localStorage.setItem("sr_quality_pass", qualityPass ? "true" : "false");
+
+    try {
+      await fetch("/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          llm_base_url: baseUrl,
+          llm_model: model,
+          llm_api_key: apiKey,
+          tts_engine: ttsEngine,
+          tts_voice: ttsVoice,
+        }),
+      });
+    } catch (_) {}
 
     updateHeaderBadges();
     showToast("Settings applied & saved!");
@@ -168,6 +222,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (settingProvider.value === "geniex") {
       badgeNpuText.textContent = "Qualcomm NPU (GenieX)";
+    } else if (settingProvider.value === "nvidia") {
+      badgeNpuText.textContent = "NVIDIA NIM Cloud AI";
+    } else if (settingProvider.value === "gemini") {
+      badgeNpuText.textContent = "Google Gemini AI";
+    } else if (["openai", "groq", "together", "mistral"].includes(settingProvider.value)) {
+      badgeNpuText.textContent = "Cloud LLM Connected";
     } else {
       badgeNpuText.textContent = "Offline-Ready Local AI";
     }
@@ -250,6 +310,48 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       topicInput.value = btn.getAttribute("data-topic") || "";
       topicInput.focus();
+    });
+  });
+
+  // Length and ratio selectors per FORMATS.md
+  let selectedDuration = 60;
+  let selectedRatio = "16:9";
+
+  const durationPills = document.querySelectorAll("#duration-pills .pill-btn");
+  const customDurationInput = document.getElementById("custom-duration");
+  const ratioPills = document.querySelectorAll("#ratio-pills .pill-btn");
+
+  durationPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      durationPills.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const sec = btn.getAttribute("data-seconds");
+      if (sec === "custom") {
+        if (customDurationInput) {
+          customDurationInput.style.display = "inline-block";
+          customDurationInput.focus();
+          selectedDuration = parseInt(customDurationInput.value, 10) || 60;
+        }
+      } else {
+        if (customDurationInput) {
+          customDurationInput.style.display = "none";
+        }
+        selectedDuration = parseInt(sec, 10) || 60;
+      }
+    });
+  });
+
+  if (customDurationInput) {
+    customDurationInput.addEventListener("input", () => {
+      selectedDuration = parseInt(customDurationInput.value, 10) || 60;
+    });
+  }
+
+  ratioPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      ratioPills.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedRatio = btn.getAttribute("data-ratio") || "16:9";
     });
   });
 
@@ -362,7 +464,8 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
 
       case "tts_done":
-        appendAgentLog("success", "🔊", `Narration audio complete (${data.duration}s duration).`);
+        const narrInfo = data.narration_duration ? ` (speech: ${data.narration_duration}s)` : "";
+        appendAgentLog("success", "🔊", `Audio ready — video will be <strong>${data.duration}s</strong>${narrInfo}`);
         break;
 
       case "render_progress":
@@ -417,14 +520,16 @@ document.addEventListener("DOMContentLoaded", () => {
     agentPanel.hidden = false;
     statusPanel.hidden = false;
 
-    // Build payload including UI settings
+    // Build payload including UI settings, format, and duration
     const payload = {
       topic,
-      llm_base_url: localStorage.getItem("sr_base_url") || settingBaseUrl.value.trim(),
-      llm_model: localStorage.getItem("sr_model") || settingModel.value.trim(),
-      llm_api_key: localStorage.getItem("sr_api_key") || settingApiKey.value.trim(),
-      tts_engine: localStorage.getItem("sr_tts_engine") || settingTtsEngine.value,
-      tts_voice: localStorage.getItem("sr_tts_voice") || settingTtsVoice.value,
+      target_duration: selectedDuration,
+      aspect_ratio: selectedRatio,
+      llm_base_url: settingBaseUrl.value.trim() || localStorage.getItem("sr_base_url") || "",
+      llm_model: settingModel.value.trim() || localStorage.getItem("sr_model") || "",
+      llm_api_key: settingApiKey.value.trim(),
+      tts_engine: settingTtsEngine.value || localStorage.getItem("sr_tts_engine") || "auto",
+      tts_voice: settingTtsVoice.value || localStorage.getItem("sr_tts_voice") || "auto",
       quality_pass: settingQualityPass.checked,
     };
 
@@ -537,7 +642,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const div = document.createElement("div");
         div.className = "history-item";
         div.innerHTML = `
-          <div class="history-topic" title="${escapeHtml(item.topic)}">▶ ${escapeHtml(item.topic)}</div>
+          <div class="history-item-left">
+            <span class="history-play-icon" aria-hidden="true">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            </span>
+            <span class="history-topic" title="${escapeHtml(item.topic)}">${escapeHtml(item.topic)}</span>
+          </div>
           <span class="history-scenes">${item.scenes} scenes</span>
         `;
         div.addEventListener("click", () => {

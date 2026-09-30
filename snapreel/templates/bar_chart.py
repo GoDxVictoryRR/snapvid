@@ -1,4 +1,4 @@
-"""Bar chart scene template renderer."""
+"""Bar chart scene template renderer V2."""
 
 from __future__ import annotations
 
@@ -8,26 +8,24 @@ from PIL import Image, ImageDraw
 
 from snapreel.templates.common import (
     DEFAULT_FPS,
-    create_canvas,
+    PALETTE,
+    SIZES,
+    apply_grain,
     draw_gradient_bar,
-    ease_out_cubic,
+    draw_text_shadowed,
+    ease_out_back,
+    get_canvas_ratio,
+    get_canvas_size,
     hex_to_rgba,
     load_font,
+    make_animated_bg,
+    wrap_text,
 )
 
 
-def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS) -> list[Image.Image]:
-    """Render horizontal animated bar chart frames.
-
-    Args:
-        data: Template data containing 'heading', 'labels', 'values', and optional 'unit'.
-        duration: Duration of the scene in seconds.
-        fps: Frames per second (default 30).
-
-    Returns:
-        List of RGB PIL Images.
-    """
-    total_frames = max(1, int(math.ceil(duration * fps)))
+def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS, global_frame_offset: int = 0) -> list[Image.Image]:
+    """Render horizontal animated bar chart frames per TEMPLATES_V2.md."""
+    total_frames = max(1, math.ceil(duration * fps))
     heading_text = str(data.get("heading", ""))
     labels = [str(l) for l in data.get("labels", [])]
     raw_values = data.get("values", [])
@@ -37,99 +35,141 @@ def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS)
     count = min(len(labels), len(values), 8)
     labels = labels[:count]
     values = values[:count]
-
-    font_heading = load_font(bold=True, size=52)
-    font_label = load_font(bold=False, size=26)
-    font_val = load_font(bold=True, size=26)
-
-    margin_x = 80
-    heading_y = 70
-    start_y = 170
-
-    bar_h = 44 if count > 6 else 48
-    bar_gap = 12 if count > 6 else 16
-
-    bar_start_x = 340
-    max_bar_w = 680
-
     max_val = max(values) if values and max(values) > 0 else 1.0
+
+    w, h = get_canvas_size()
+    ratio = get_canvas_ratio()
+
+    h2_size = 32 if ratio == "9:16" else SIZES["h2"]
+    caption_size = 18 if ratio == "9:16" else SIZES["caption"]
+
+    font_heading = load_font(bold=True, size=h2_size)
+    font_caption = load_font(bold=False, size=caption_size)
+    font_val = load_font(bold=True, size=caption_size)
+
+    heading_lines = wrap_text(heading_text, font_heading, w - 80) if heading_text else []
+    h_line_h = int(h2_size * 1.25)
+    total_h_h = len(heading_lines) * h_line_h
+
+    left_margin = int(w * 0.28) if ratio == "9:16" else int(w * 0.26)
+    max_bar_w = int(w * 0.44) if ratio == "9:16" else int(w * 0.52)
+    heading_y = 35 if ratio == "9:16" else 45
+    start_y = heading_y + total_h_h + (35 if heading_lines else 20)
+
+    avail_h = h - start_y - 60
+    n = max(1, count)
+    bar_h = min(44, max(22, (avail_h // n) - 12))
+    bar_gap = max(8, min(14, (avail_h - n * bar_h) // max(1, n)))
 
     frames: list[Image.Image] = []
 
     for f in range(total_frames):
         t = f / fps
-        canvas = create_canvas()
+        canvas = make_animated_bg(f, total_frames, global_frame=global_frame_offset + f)
         draw = ImageDraw.Draw(canvas)
 
-        # Draw heading
-        h_alpha = min(1.0, t / 0.3)
-        draw.text(
-            (margin_x, heading_y),
-            heading_text,
-            fill=hex_to_rgba("#ffffff", h_alpha),
-            font=font_heading,
-        )
+        # 1. Heading with shadow
+        if heading_lines:
+            h_alpha = min(1.0, t / 0.3) if duration > 0 else 1.0
+            h_col = hex_to_rgba(PALETTE["text_hi"], h_alpha)
+            s_col = (0, 0, 0, int(120 * h_alpha))
+            for i, hl in enumerate(heading_lines):
+                draw_text_shadowed(
+                    draw,
+                    (36 if ratio == "9:16" else 70, heading_y + i * h_line_h),
+                    hl,
+                    font_heading,
+                    h_col,
+                    s_col,
+                )
 
         for i in range(count):
             lbl = labels[i]
             val = values[i]
             y = start_y + i * (bar_h + bar_gap)
 
-            # Draw label (left of bar, right aligned to bar_start_x - 20)
-            lbl_bbox = draw.textbbox((0, 0), lbl, font=font_label)
+            # Label: right-aligned before bar, truncated if too long
+            lbl_bbox = draw.textbbox((0, 0), lbl, font=font_caption)
             lbl_w = lbl_bbox[2] - lbl_bbox[0]
+            max_lbl_avail = left_margin - 30
+            if lbl_w > max_lbl_avail:
+                lbl = lbl[:10] + ".."
+                lbl_bbox = draw.textbbox((0, 0), lbl, font=font_caption)
+                lbl_w = lbl_bbox[2] - lbl_bbox[0]
+
             lbl_h = lbl_bbox[3] - lbl_bbox[1]
-            lbl_x = max(margin_x, bar_start_x - 24 - lbl_w)
-            lbl_y = y + (bar_h - lbl_h) // 2 - 2
+            lbl_x = max(15, left_margin - 14 - lbl_w)
+            lbl_y = y + (bar_h - lbl_h) // 2
 
             draw.text(
                 (lbl_x, lbl_y),
                 lbl,
-                fill=hex_to_rgba("#e0e0ff", 1.0),
-                font=font_label,
+                fill=hex_to_rgba(PALETTE["text_mid"], 1.0),
+                font=font_caption,
             )
 
-            # Animate bar grow over 0.6s
-            stagger = 0.08 * i
-            rel_t = max(0.0, t - stagger)
-            p = min(1.0, rel_t / 0.6)
-            e = ease_out_cubic(p)
+            # Track background
+            draw_gradient_bar(
+                draw=draw,
+                x=left_margin,
+                y=y,
+                w=max_bar_w,
+                h=bar_h,
+                start_hex=PALETTE["bg_card"],
+                end_hex=PALETTE["bg_card"],
+                alpha=0.45,
+                radius=4,
+            )
+
+            # Animate bar grow with ease_out_back spaced across scene duration
+            reveal_window = min(max(0.8, duration * 0.6), 0.9 * max(1, count))
+            step = reveal_window / max(1, count)
+            t_start = 0.25 + i * step
+            rel_t = max(0.0, t - t_start)
+            p = min(1.0, rel_t / 0.65) if rel_t > 0 else 0.0
+            e = ease_out_back(p)
 
             target_w = int((val / max_val) * max_bar_w) if max_val > 0 else 0
-            curr_w = max(4, int(target_w * e)) if target_w > 0 else 0
+            curr_w = max(0, min(max_bar_w, int(target_w * max(0.0, e))))
 
-            # Draw bar gradient
             if curr_w > 0:
                 draw_gradient_bar(
                     draw=draw,
-                    x=bar_start_x,
+                    x=left_margin,
                     y=y,
                     w=curr_w,
                     h=bar_h,
-                    start_hex="#6c63ff",
-                    end_hex="#48cae4",
+                    start_hex=PALETTE["accent1"],
+                    end_hex=PALETTE["accent2"],
                     alpha=1.0,
-                    radius=6,
+                    radius=4,
                 )
 
-            # Draw value text right of bar
-            val_str = f"{int(round(val))}" if val.is_integer() else f"{val:.1f}"
-            if unit_text:
-                val_str = f"{val_str} {unit_text}"
+            # Value label: appears right of bar when bar > 80% grown (p > 0.8)
+            if p > 0.8:
+                val_str = f"{int(val)}" if val.is_integer() else f"{val:.1f}"
+                if unit_text:
+                    val_str = f"{val_str} {unit_text}"
 
-            val_bbox = draw.textbbox((0, 0), val_str, font=font_val)
-            val_h = val_bbox[3] - val_bbox[1]
-            val_x = bar_start_x + curr_w + 16
-            val_y = y + (bar_h - val_h) // 2 - 2
+                val_bbox = draw.textbbox((0, 0), val_str, font=font_val)
+                val_w = val_bbox[2] - val_bbox[0]
+                val_h = val_bbox[3] - val_bbox[1]
+                val_x = left_margin + curr_w + 10
+                if val_x + val_w > w - 16:
+                    val_x = max(left_margin + 6, w - val_w - 16)
+                val_y = int(y + (bar_h - val_h) // 2)
+                val_alpha = min(1.0, (p - 0.8) / 0.2)
 
-            v_alpha = e
-            draw.text(
-                (val_x, val_y),
-                val_str,
-                fill=hex_to_rgba("#ffffff", v_alpha),
-                font=font_val,
-            )
+                draw_text_shadowed(
+                    draw,
+                    (val_x, val_y),
+                    val_str,
+                    font_val,
+                    hex_to_rgba(PALETTE["text_hi"], val_alpha),
+                    (0, 0, 0, int(100 * val_alpha)),
+                )
 
+        canvas = apply_grain(canvas, strength=0.02, frame_idx=f)
         frames.append(canvas.convert("RGB"))
 
     return frames

@@ -134,3 +134,107 @@ def test_7_full_pipeline_render_video(tmp_path):
     assert Path(result_path).stat().st_size > 1000
     assert len(progress_calls) == 1
     assert progress_calls[0] == (0, 1)
+
+
+def test_8_lower_third_template_frame_count():
+    """Case 8: lower_third template frame count check."""
+    duration = 2.0
+    fps = 30
+    frames = render_scene_frames(
+        "lower_third",
+        {"name": "Alice Smith", "role": "Lead Architect"},
+        duration=duration,
+        fps=fps,
+    )
+    assert isinstance(frames, list)
+    assert len(frames) == int(duration * fps)
+    assert all(isinstance(f, Image.Image) for f in frames)
+
+
+def test_9_quote_template_frame_count():
+    """Case 9: quote template frame count check."""
+    duration = 2.0
+    fps = 30
+    frames = render_scene_frames(
+        "quote",
+        {"text": "Simplicity is prerequisite for reliability.", "attribution": "Edsger W. Dijkstra", "style": "card"},
+        duration=duration,
+        fps=fps,
+    )
+    assert isinstance(frames, list)
+    assert len(frames) == int(duration * fps)
+    assert all(isinstance(f, Image.Image) for f in frames)
+
+
+def test_10_icon_list_template_frame_count():
+    """Case 10: icon_list template frame count check."""
+    duration = 2.0
+    fps = 30
+    frames = render_scene_frames(
+        "icon_list",
+        {
+            "heading": "Key Benefits",
+            "items": [
+                {"icon": "bolt", "text": "High Performance"},
+                {"icon": "lock", "text": "Privacy First"},
+                {"icon": "check", "text": "Tested & Reliable"},
+            ],
+        },
+        duration=duration,
+        fps=fps,
+    )
+    assert isinstance(frames, list)
+    assert len(frames) == int(duration * fps)
+    assert all(isinstance(f, Image.Image) for f in frames)
+
+
+def test_11_split_template_frame_count():
+    """Case 11: split template frame count check."""
+    duration = 2.0
+    fps = 30
+    frames = render_scene_frames(
+        "split",
+        {
+            "heading": "Efficiency Gain",
+            "body": "Running inference locally on NPU consumes significantly less power.",
+            "visual": "counter",
+            "visual_data": {"from": 0, "to": 85, "unit": "%", "label": "Energy Saved"},
+        },
+        duration=duration,
+        fps=fps,
+    )
+    assert isinstance(frames, list)
+    assert len(frames) == int(duration * fps)
+    assert all(isinstance(f, Image.Image) for f in frames)
+
+
+def test_12_multi_scene_video_with_transitions(tmp_path):
+    """Case 12: Render multi-scene video with slide_left transition."""
+    script = SceneScript(
+        title="Multi Scene Transition Test",
+        aspect_ratio="9:16",
+        total_duration=4.0,
+        scenes=[
+            Scene(
+                id="s1",
+                template="title",
+                duration=2.0,
+                narration="Scene one narration",
+                data={"heading": "Scene One"},
+                transition="slide_left",
+            ),
+            Scene(
+                id="s2",
+                template="lower_third",
+                duration=2.0,
+                narration="Scene two narration",
+                data={"name": "Host", "role": "Presenter"},
+            ),
+        ],
+    )
+    out_file = tmp_path / "test_transition.mp4"
+    res = render_video(script, str(out_file), fps=15)
+    assert os.path.exists(res)
+    assert Path(res).stat().st_size > 1000
+
+

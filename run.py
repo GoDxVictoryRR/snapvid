@@ -1,4 +1,4 @@
-"""SnapReel CLI entry point.
+"""SnapVid CLI entry point.
 
 Usage:
     python run.py "Explain photosynthesis in 60 seconds"

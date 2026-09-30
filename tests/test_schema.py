@@ -213,9 +213,9 @@ def test_6_duration_below_min_raises_validation_error():
         validate_script(json.dumps(raw_dict))
 
 
-def test_7_narration_over_200_chars_raises_validation_error():
-    """Case 7: narration > 200 chars -> ValidationError."""
-    long_narration = "A" * 201
+def test_7_narration_over_1200_chars_raises_validation_error():
+    """Case 7: narration > 1200 chars -> ValidationError (limit raised to 1200 for long scenes)."""
+    long_narration = "A" * 1201
     raw_dict = _create_base_script(
         scenes=[
             {
@@ -268,8 +268,8 @@ def test_9_zero_scenes_raises_validation_error():
         validate_script(json.dumps(raw_dict))
 
 
-def test_10_twenty_one_scenes_raises_validation_error():
-    """Case 10: 21 scenes (over max 20) -> ValidationError."""
+def test_10_thirty_one_scenes_raises_validation_error():
+    """Case 10: 31 scenes (over new max 30) -> ValidationError."""
     scenes = [
         {
             "id": f"scene-{i:02d}",
@@ -278,11 +278,11 @@ def test_10_twenty_one_scenes_raises_validation_error():
             "narration": f"Scene number {i}",
             "data": {"heading": f"Title {i}"},
         }
-        for i in range(1, 22)
+        for i in range(1, 32)
     ]
     raw_dict = {
         "title": "Too Many Scenes Video",
-        "total_duration": 42.0,
+        "total_duration": 62.0,
         "scenes": scenes,
     }
 
@@ -291,10 +291,106 @@ def test_10_twenty_one_scenes_raises_validation_error():
 
 
 def test_11_malformed_json_string_raises_validation_error():
-    """Case 11: Malformed JSON string -> ValidationError (json.JSONDecodeError wrapped)."""
-    malformed_json = '{"title": "Unclosed Object", "scenes": ['
+    """Case 11: Severely malformed JSON -> ValidationError raised.
 
-    with pytest.raises(ValidationError) as exc_info:
+    The auto-repair in validate_script may be able to partially fix simple
+    truncation (closing open brackets), but the result will still fail Pydantic
+    validation (missing required fields). Either way a ValidationError is expected.
+    """
+    # This input is so broken that even after repair it fails Pydantic validation
+    malformed_json = '{not valid json at all %%% :::'
+
+    with pytest.raises(ValidationError):
         validate_script(malformed_json)
 
-    assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)
+
+def test_12_valid_aspect_ratios_and_target_duration():
+    """Case 12: Test custom aspect ratios and target duration."""
+    for ratio in ["16:9", "9:16", "1:1", "4:3"]:
+        raw = _create_base_script(
+            scenes=[{
+                "id": "scene-01",
+                "template": "title",
+                "duration": 3.0,
+                "narration": "Aspect ratio test",
+                "data": {"heading": "Testing Aspect Ratio"},
+                "transition": "slide_left",
+            }],
+            total_duration=3.0,
+        )
+        raw["aspect_ratio"] = ratio
+        raw["target_duration"] = 30
+        res = validate_script(json.dumps(raw))
+        assert res.aspect_ratio == ratio
+        assert res.target_duration == 30
+        assert res.scenes[0].transition == "slide_left"
+
+
+def test_13_invalid_aspect_ratio_raises_validation_error():
+    """Case 13: Invalid aspect ratio raises ValidationError."""
+    raw = _create_base_script(
+        scenes=[{
+            "id": "scene-01",
+            "template": "title",
+            "duration": 3.0,
+            "narration": "Invalid ratio",
+            "data": {"heading": "Invalid Ratio"},
+        }],
+        total_duration=3.0,
+    )
+    raw["aspect_ratio"] = "21:9"
+    with pytest.raises(ValidationError) as exc_info:
+        validate_script(json.dumps(raw))
+    assert "aspect_ratio must be one of" in str(exc_info.value)
+
+
+def test_14_auto_repair_missing_comma_between_scenes():
+    """Case 14: Missing comma between scene objects is auto-repaired by validate_script.
+
+    This simulates the exact production error:
+      'Expecting ','  delimiter: line 39 column 5'
+    which occurs when the LLM omits the comma between two scene JSON objects.
+    """
+    # Two scene objects with NO comma between them — the exact LLM failure mode
+    broken_json = """{
+  "title": "Test Video",
+  "total_duration": 7.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 4.0,
+      "narration": "Hello world",
+      "data": {"heading": "Hello", "subheading": null}
+    }
+    {
+      "id": "s2",
+      "template": "kinetic",
+      "duration": 3.0,
+      "narration": "Goodbye world",
+      "data": {"lines": ["Goodbye"]}
+    }
+  ]
+}"""
+    script = validate_script(broken_json)
+    assert len(script.scenes) == 2
+    assert script.total_duration == 7.0
+
+
+def test_15_auto_repair_trailing_comma():
+    """Case 15: Trailing comma before closing brace is auto-repaired."""
+    broken_json = """{
+  "title": "Test",
+  "total_duration": 4.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 4.0,
+      "narration": "Hi",
+      "data": {"heading": "Hi", "subheading": null},
+    },
+  ]
+}"""
+    script = validate_script(broken_json)
+    assert script.title == "Test"

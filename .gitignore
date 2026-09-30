@@ -5,3 +5,10 @@ output/
 snapreel/assets/*.ttf
 .venv/
 .agents/
+.vscode/
+.pytest_cache/
+scratch/
+pyrightconfig.json
+dummy.wav
+*.wav
+

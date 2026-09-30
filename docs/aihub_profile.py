@@ -6,7 +6,7 @@ NOT called at runtime. Output goes to docs/benchmark_results.json
 import json
 
 try:
-    import qai_hub as hub
+    import qai_hub as hub  # type: ignore
 except ImportError:
     hub = None
 

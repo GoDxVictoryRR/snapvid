@@ -104,7 +104,8 @@ def test_3_generate_scene_script_first_call_valid_zero_retries(mocker):
     valid_json = _sample_valid_script_json()
     mock_llm = mocker.patch("snapreel.llm.llm_complete", return_value=valid_json)
 
-    script = generate_scene_script("Quantum Computing")
+    # target_duration=6 matches the mock script's total_duration so the length guard passes
+    script = generate_scene_script("Quantum Computing", target_duration=6)
     assert isinstance(script, SceneScript)
     assert script.title == "Quantum Computing 101"
     assert len(script.scenes) == 2
@@ -121,7 +122,8 @@ def test_4_generate_scene_script_repair_after_one_retry(mocker):
         side_effect=[invalid_json, valid_json],
     )
 
-    script = generate_scene_script("Quantum Computing")
+    # target_duration=6 matches mock script total_duration so length guard passes
+    script = generate_scene_script("Quantum Computing", target_duration=6)
     assert isinstance(script, SceneScript)
     assert script.title == "Quantum Computing 101"
     assert mock_llm.call_count == 2
@@ -151,7 +153,8 @@ def test_6_generate_scene_script_emits_events(mocker):
     mocker.patch("snapreel.llm.llm_complete", return_value=valid_json)
     events = []
 
-    script = generate_scene_script("Gravity", on_event=events.append)
+    # target_duration=6 matches mock script total_duration so length guard passes
+    script = generate_scene_script("Gravity", on_event=events.append, target_duration=6)
     assert script.title == "Quantum Computing 101"
     types = [e["type"] for e in events]
     assert "planning_start" in types
@@ -167,3 +170,20 @@ def test_7_llm_complete_timed(mocker):
     assert "tokens" in metrics
     assert "seconds" in metrics
     assert metrics["tokens"] == 4
+
+
+def test_gemini_url_normalization(mocker):
+    """Gemini API URL without /openai is automatically normalized."""
+    os.environ["LLM_BASE_URL"] = "https://generativelanguage.googleapis.com/v1beta"
+    os.environ["LLM_MODEL"] = "gemini-1.5-flash"
+    mock_response = mocker.MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "Normalized URL works"}}]
+    }
+    mock_post = mocker.patch("requests.post", return_value=mock_response)
+    mocker.patch("snapreel.llm._assert_model_available")
+    res = llm_complete("Test prompt")
+    assert res == "Normalized URL works"
+    called_url = mock_post.call_args[0][0]
+    assert called_url == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"

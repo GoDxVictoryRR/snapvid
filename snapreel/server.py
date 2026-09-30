@@ -11,6 +11,7 @@ from __future__ import annotations
 import http.server
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import queue
@@ -29,15 +30,12 @@ logger = logging.getLogger(__name__)
 
 PORT = 8000
 ROOT_DIR = Path(__file__).resolve().parent.parent
-UI_DIR = ROOT_DIR / "ui"
-OUTPUT_DIR = ROOT_DIR / "output"
+UI_DIR, OUTPUT_DIR = ROOT_DIR / "ui", ROOT_DIR / "output"
 
 _jobs: dict[str, dict[str, Any]] = {}
 _job_events: dict[str, list[dict[str, Any]]] = {}
 _job_subscribers: dict[str, list[queue.Queue[dict[str, Any]]]] = {}
 _sub_lock = threading.Lock()
-
-
 def _record_event(job_id: str, event: dict[str, Any]) -> None:
     with _sub_lock:
         _job_events.setdefault(job_id, []).append(event)
@@ -51,12 +49,10 @@ def _subscribe_job_events(job_id: str) -> queue.Queue[dict[str, Any]]:
         _job_subscribers.setdefault(job_id, []).append(q)
     return q
 
-
 def _unsubscribe_job_events(job_id: str, q: queue.Queue[dict[str, Any]]) -> None:
     with _sub_lock:
         if job_id in _job_subscribers and q in _job_subscribers[job_id]:
             _job_subscribers[job_id].remove(q)
-
 
 def _get_job_events(job_id: str) -> list[dict[str, Any]]:
     with _sub_lock:
@@ -67,53 +63,81 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
     settings = settings or {}
     _jobs[job_id] = {"state": "running", "progress": 5, "status": "Planning script with LLM..."}
 
-    for env_k, k in [("LLM_BASE_URL", "llm_base_url"), ("LLM_MODEL", "llm_model"), ("LLM_API_KEY", "llm_api_key"), ("TTS_ENGINE", "tts_engine"), ("TTS_VOICE", "tts_voice")]:
-        v = settings.get(k)
-        if v is not None and str(v).strip():
-            os.environ[env_k] = str(v).strip()
+    env_keys = [("LLM_BASE_URL", "llm_base_url"), ("LLM_MODEL", "llm_model"), ("LLM_API_KEY", "llm_api_key"),
+                ("LLM_TIMEOUT", "llm_timeout"), ("TTS_ENGINE", "tts_engine"), ("TTS_VOICE", "tts_voice")]
+    for env_k, k in env_keys:
+        if k in settings:
+            v = str(settings[k] or "").strip()
+            if v:
+                os.environ[env_k] = v
+            elif env_k == "LLM_API_KEY":
+                os.environ.pop(env_k, None)
 
-    quality_review = settings.get("quality_pass")
-    tts_engine = settings.get("tts_engine", "auto")
-    tts_voice = settings.get("tts_voice", "auto")
+    if not settings.get("llm_timeout"):
+        model, cur = os.environ.get("LLM_MODEL", ""), int(os.environ.get("LLM_TIMEOUT", 300))
+        if any(x in model.lower() for x in ["hf.co/", "fable", "qwen3.5", "opus", "31b", "70b"]):
+            os.environ["LLM_TIMEOUT"] = str(max(cur, 300))
+
+    quality_review, tts_engine, tts_voice = settings.get("quality_pass"), settings.get("tts_engine", "auto"), settings.get("tts_voice", "auto")
+    target_duration, aspect_ratio = int(settings.get("target_duration") or 60), str(settings.get("aspect_ratio") or "16:9")
 
     try:
         from snapreel.planner import generate
         from snapreel.renderer import render_video
-        from snapreel.tts import narrate
+        from snapreel.tts import concat_audio, prepare_audio, reconcile_durations
 
         def on_event(ev: dict[str, Any]) -> None:
             _record_event(job_id, ev)
 
         _record_event(job_id, {"type": "planning_start", "data": {"topic": topic}})
-        script = generate(topic, on_event=on_event, quality_review=quality_review)
+        script = generate(topic, on_event=on_event, quality_review=quality_review, target_duration=target_duration, aspect_ratio=aspect_ratio)
 
         _jobs[job_id].update({"progress": 25, "status": f"Script planned: {len(script.scenes)} scenes"})
         out_file = Path(out_path).resolve()
         out_file.parent.mkdir(parents=True, exist_ok=True)
 
-        audio_path = None
-        full_narration = " ... ".join(s.narration for s in script.scenes if s.narration)
-        if full_narration:
+        audio_path, audio_durations = None, None
+        has_narration = any(s.narration and s.narration.strip() for s in script.scenes)
+        def _quantize_frames(scs: list[Any], tgt_dur: float) -> float:
+            from snapreel.renderer import RENDER_FPS
+            tgt_f, raw_f = round(tgt_dur * RENDER_FPS), [max(1, round(s.duration * RENDER_FPS)) for s in scs]
+            if (diff := tgt_f - sum(raw_f)) != 0 and raw_f:
+                raw_f[-1] = max(1, raw_f[-1] + diff)
+            for idx, s in enumerate(scs):
+                s.duration = round(raw_f[idx] / RENDER_FPS, 4)
+            return round(sum(s.duration for s in scs), 4)
+
+        if has_narration:
+            wav_dir = out_file.parent / f"{job_id}_audio"
+            wav_dir.mkdir(parents=True, exist_ok=True)
             wav_path = str(out_file.with_suffix(".wav"))
             _jobs[job_id]["status"] = "Generating voice narration..."
             _record_event(job_id, {"type": "tts_start", "data": {"engine": tts_engine, "voice": tts_voice}})
             try:
-                dur = narrate(full_narration, wav_path, engine=tts_engine, voice=tts_voice)
-                if Path(wav_path).exists() and Path(wav_path).stat().st_size > 0:
+                wav_paths, audio_durations = prepare_audio(script, str(wav_dir), engine=tts_engine, voice=tts_voice)
+                script = reconcile_durations(script, audio_durations, min_tail_padding=0.8, max_trailing_pause=1.4, target_duration=float(target_duration))
+                script.total_duration = _quantize_frames(script.scenes, float(target_duration))
+                scene_durations = [s.duration for s in script.scenes]
+                concat_audio(wav_paths, scene_durations, wav_path)
+                if Path(wav_path).exists() and Path(wav_path).stat().st_size > 44:
                     audio_path = wav_path
-                    _record_event(job_id, {"type": "tts_done", "data": {"duration": round(dur, 2)}})
+                    _record_event(job_id, {"type": "tts_done", "data": {
+                        "duration": round(sum(scene_durations), 2), "narration_duration": round(sum(audio_durations), 2),
+                    }})
             except Exception as e:
-                logger.warning("TTS audio skipped: %s", e)
+                logger.warning("TTS audio generation skipped: %s", e)
+        else:
+            script.total_duration = _quantize_frames(script.scenes, float(target_duration))
 
         total = len(script.scenes)
 
         def on_progress(i: int, total_cnt: int) -> None:
-            pct = 25 + int(round(((i + 1) / total_cnt) * 73))
+            pct = 25 + round(((i + 1) / total_cnt) * 73)
             _jobs[job_id].update({"progress": min(98, pct), "status": f"Rendering scene {i + 1}/{total_cnt}..."})
             _record_event(job_id, {"type": "render_progress", "data": {"scene": i + 1, "total": total_cnt, "percent": pct}})
 
         _jobs[job_id]["status"] = f"Rendering {total} video scenes..."
-        render_video(script, str(out_file), audio_path=audio_path, on_progress=on_progress)
+        render_video(script, str(out_file), audio_path=audio_path, on_progress=on_progress, audio_durations=audio_durations)
 
         save_history(topic, f"/output/{out_file.name}", total)
         _jobs[job_id] = {"state": "done", "progress": 100, "status": "Rendering complete!", "output": f"/output/{out_file.name}"}
@@ -148,24 +172,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             job_id = str(uuid.uuid4())[:8]
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             out_path = str(OUTPUT_DIR / f"{job_id}.mp4")
-
             threading.Thread(target=_run_job, args=(topic, out_path, job_id, body), daemon=True).start()
             self._json(202, {"job_id": job_id, "output": f"/output/{job_id}.mp4"})
+        elif self.path == "/config":
+            for ek, k in [("LLM_BASE_URL", "llm_base_url"), ("LLM_MODEL", "llm_model"), ("LLM_API_KEY", "llm_api_key"), ("TTS_ENGINE", "tts_engine"), ("TTS_VOICE", "tts_voice")]:
+                if k in body:
+                    v = str(body[k] or "").strip()
+                    if v:
+                        os.environ[ek] = v
+                    elif ek == "LLM_API_KEY":
+                        os.environ.pop(ek, None)
+            self._json(200, {"ok": True})
         elif self.path == "/test_llm":
             res = test_llm_connection(body.get("llm_base_url", ""), body.get("llm_model", ""), body.get("llm_api_key", ""))
             self._json(200, res)
         elif self.path.startswith("/status/"):
-            job_id = self.path.split("/")[-1]
-            self._json(200, _jobs.get(job_id, {"state": "unknown"}))
+            self._json(200, _jobs.get(self.path.split("/")[-1], {"state": "unknown"}))
         else:
             self._json(404, {"error": "Not found"})
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-
         if path.startswith("/events/"):
             self._stream_events(path.split("/events/")[-1])
+        elif path == "/config":
+            self._json(200, {
+                "llm_base_url": os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1"),
+                "llm_model": os.environ.get("LLM_MODEL", "granite4.2:3b"),
+                "llm_api_key": os.environ.get("LLM_API_KEY", ""),
+                "has_api_key": bool(os.environ.get("LLM_API_KEY")),
+                "tts_engine": os.environ.get("TTS_ENGINE", "auto"),
+                "tts_voice": os.environ.get("TTS_VOICE", "auto"),
+            })
         elif path == "/test_llm":
             p = urllib.parse.parse_qs(parsed.query)
             res = test_llm_connection(p.get("llm_base_url", [""])[0], p.get("llm_model", [""])[0], p.get("llm_api_key", [""])[0])
@@ -185,8 +224,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         file_path = OUTPUT_DIR / filename
         if file_path.exists() and file_path.is_file():
             self.send_response(200)
-            self.send_header("Content-Type", "video/mp4")
-            self.send_header("Content-Length", str(file_path.stat().st_size))
+            for h, v in [("Content-Type", "video/mp4"), ("Content-Length", str(file_path.stat().st_size))]:
+                self.send_header(h, v)
             self.end_headers()
             with open(file_path, "rb") as f:
                 self.wfile.write(f.read())
@@ -195,10 +234,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _stream_events(self, job_id: str):
         self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        for h, v in [("Content-Type", "text/event-stream"), ("Cache-Control", "no-cache"),
+                     ("Connection", "keep-alive"), ("Access-Control-Allow-Origin", "*")]:
+            self.send_header(h, v)
         self.end_headers()
 
         q = _subscribe_job_events(job_id)
@@ -230,15 +268,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def _json(self, code: int, data: Any):
         body = json.dumps(data).encode("utf-8")
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
+        for h, v in [("Content-Type", "application/json"), ("Content-Length", str(len(body)))]:
+            self.send_header(h, v)
         self.end_headers()
         self.wfile.write(body)
 
 
+class _SnapReelServer(http.server.ThreadingHTTPServer):
+    """ThreadingHTTPServer that cleanly handles client disconnects on Windows."""
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        import sys
+        if sys.exc_info()[0] in (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            return
+        super().handle_error(request, client_address)
+
+
 def run_server(port: int = PORT):
-    server_address = ("", port)
-    httpd = http.server.ThreadingHTTPServer(server_address, Handler)
+    httpd = _SnapReelServer(("", port), Handler)
     logger.info("SnapReel server running on http://localhost:%d", port)
     try:
         httpd.serve_forever()

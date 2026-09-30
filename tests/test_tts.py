@@ -121,3 +121,149 @@ def test_7_engine_sapi_explicitly_skips_others(mocker):
     mock_kokoro.assert_not_called()
     mock_edge.assert_not_called()
     mock_sapi.assert_called_once_with("Test explicit sapi", "dummy.wav")
+
+
+def test_8_reconcile_durations():
+    """CAPTIONS.md: reconcile_durations expands scenes when audio is longer."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import reconcile_durations
+
+    script = SceneScript(
+        title="Reconcile Test",
+        total_duration=6.0,
+        scenes=[
+            Scene(id="s1", template="title", duration=3.0, narration="Short", data={"heading": "S1"}),
+            Scene(id="s2", template="title", duration=3.0, narration="Long", data={"heading": "S2"}),
+        ],
+    )
+    # Audio durations: s1 is 2.0s (< 3.0s), s2 is 4.0s (> 3.0s)
+    reconciled = reconcile_durations(script, [2.0, 4.0])
+    assert reconciled.scenes[0].duration == 3.0
+    assert reconciled.scenes[1].duration == 4.3  # 4.0 + 0.3 padding
+    assert reconciled.total_duration == 7.3
+
+
+def test_9_concat_audio(tmp_path):
+    """CAPTIONS.md: concat_audio writes a valid multi-scene audio wav."""
+    import wave
+    from snapreel.tts import concat_audio
+
+    # Create two 1-second sine wave or silent test WAVs
+    f1 = tmp_path / "s1.wav"
+    f2 = tmp_path / "s2.wav"
+    out_wav = tmp_path / "combined.wav"
+
+    sample_rate = 22050
+    for p in (f1, f2):
+        with wave.open(str(p), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(b"\x00" * (sample_rate * 2))  # 1 sec
+
+    res = concat_audio([str(f1), str(f2)], [1.5, 1.5], str(out_wav), sample_rate=sample_rate)
+    assert os.path.exists(res)
+    with wave.open(res, "rb") as wf:
+        total_sec = wf.getnframes() / float(wf.getframerate())
+        assert abs(total_sec - 3.0) < 0.1
+
+
+def test_10_prepare_audio(tmp_path, mocker):
+    """CAPTIONS.md: prepare_audio synthesizes audio per scene."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import prepare_audio
+
+    mocker.patch("snapreel.tts.narrate", return_value=2.5)
+    script = SceneScript(
+        title="Prep Test",
+        total_duration=5.0,
+        scenes=[
+            Scene(id="sc1", template="title", duration=2.5, narration="Hello world", data={"heading": "H1"}),
+            Scene(id="sc2", template="title", duration=2.5, narration="", data={"heading": "H2"}),
+        ],
+    )
+    paths, durations = prepare_audio(script, str(tmp_path))
+    assert len(paths) == 2
+    assert durations[0] == 2.5
+    assert durations[1] == 0.0
+
+
+def test_11_draw_caption_overlay():
+    """CAPTIONS.md: draw_caption_overlay renders subtitle text."""
+    from PIL import Image
+    from snapreel.tts import draw_caption_overlay
+
+    canvas = Image.new("RGBA", (1280, 720), (20, 20, 30, 255))
+    draw_caption_overlay(canvas, "This is a live test caption overlay.", style="pill")
+    assert isinstance(canvas, Image.Image)
+
+
+def test_12_reconcile_durations_format_30s():
+    """Verify 30s format reconciles to exactly 30.0s."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import reconcile_durations
+
+    scenes = [
+        Scene(id=f"s{i}", template="title", duration=7.5, narration=f"Scene {i}", data={"heading": f"H{i}"})
+        for i in range(4)
+    ]
+    script = SceneScript(title="30s Video", total_duration=30.0, scenes=scenes)
+    # Audio durations total 24.0s
+    audio_durations = [6.0, 5.5, 6.5, 6.0]
+    reconciled = reconcile_durations(script, audio_durations, min_tail_padding=0.5, target_duration=30.0)
+    assert reconciled.total_duration == 30.0
+    for i, s in enumerate(reconciled.scenes):
+        assert s.duration >= audio_durations[i] + 0.5
+
+
+def test_13_reconcile_durations_format_60s():
+    """Verify 60s format reconciles to exactly 60.0s."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import reconcile_durations
+
+    scenes = [
+        Scene(id=f"s{i}", template="bullets", duration=10.0, narration=f"Scene {i}", data={"heading": f"H{i}", "items": ["Pt 1"]})
+        for i in range(6)
+    ]
+    script = SceneScript(title="60s Video", total_duration=60.0, scenes=scenes)
+    audio_durations = [8.5, 7.8, 9.0, 8.2, 8.9, 7.6]
+    reconciled = reconcile_durations(script, audio_durations, min_tail_padding=0.6, target_duration=60.0)
+    assert reconciled.total_duration == 60.0
+    for i, s in enumerate(reconciled.scenes):
+        assert s.duration >= audio_durations[i] + 0.6
+
+
+def test_14_reconcile_durations_format_120s():
+    """Verify 120s (2 min) format reconciles to exactly 120.0s."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import reconcile_durations
+
+    scenes = [
+        Scene(id=f"s{i}", template="title", duration=12.0, narration=f"Scene {i}", data={"heading": f"H{i}"})
+        for i in range(10)
+    ]
+    script = SceneScript(title="2 Min Video", total_duration=120.0, scenes=scenes)
+    audio_durations = [9.5] * 10  # 95s audio total
+    reconciled = reconcile_durations(script, audio_durations, min_tail_padding=0.8, target_duration=120.0)
+    assert reconciled.total_duration == 120.0
+
+
+def test_15_reconcile_durations_format_300s_five_minute():
+    """Verify 300s (5 min) format reconciles to exactly 300.0s (not 3.45 min / 207s)."""
+    from snapreel.schema import Scene, SceneScript
+    from snapreel.tts import reconcile_durations
+
+    scenes = [
+        Scene(id=f"s{i}", template="title", duration=15.0, narration=f"Detailed Scene {i}", data={"heading": f"Topic {i}"})
+        for i in range(20)
+    ]
+    script = SceneScript(title="5 Min Deep Dive", total_duration=300.0, scenes=scenes)
+    # Audio durations: ~11.5s per scene, total 230s (would previously cap at 230 + 20*1.4 = 258s or 3.45 min)
+    audio_durations = [11.5] * 20
+    reconciled = reconcile_durations(script, audio_durations, min_tail_padding=0.8, target_duration=300.0)
+    assert reconciled.total_duration == 300.0
+    assert sum(s.duration for s in reconciled.scenes) == pytest.approx(300.0, rel=1e-3)
+    for i, s in enumerate(reconciled.scenes):
+        assert s.duration >= audio_durations[i] + 0.8
+
+
