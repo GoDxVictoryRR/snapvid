@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any
+from typing import Any, Callable, Optional
 from PIL import Image, ImageDraw
 
 from snapreel.templates.common import (
@@ -61,7 +61,13 @@ def highlight_tokens(line: str) -> list[tuple[str, str]]:
     return tokens
 
 
-def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS, global_frame_offset: int = 0) -> list[Image.Image]:
+def render_frames(
+    data: dict[str, Any],
+    duration: float,
+    fps: int = DEFAULT_FPS,
+    global_frame_offset: int = 0,
+    on_frame: Optional[Callable[[Image.Image, int], None]] = None,
+) -> list[Image.Image]:
     """Render code panel frames with glass styling, line numbers, and scrolling."""
     total_frames = max(1, math.ceil(duration * fps))
     heading_text = str(data.get("heading") or "").strip()
@@ -192,6 +198,10 @@ def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS,
 
         canvas.alpha_composite(visible_strip, dest=(panel_x + inner_pad_x, panel_y + inner_pad_y))
         canvas = apply_grain(canvas, strength=0.015, frame_idx=f)
-        frames.append(canvas.convert("RGB"))
+        out_f = canvas.convert("RGB")
+        if on_frame is not None:
+            on_frame(out_f, f)
+        else:
+            frames.append(out_f)
 
     return frames

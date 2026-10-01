@@ -1,19 +1,11 @@
-"""Video renderer for SnapReel — optimized with parallel scene rendering.
-
-Key changes vs previous version:
-- ThreadPoolExecutor renders scenes in parallel (major speedup)
-- 24 fps default (was 30) — imperceptible quality loss, 20% fewer frames
-- Kinetic captions baked INTO frames during render (not as post-process overlay)
-- Old draw_caption_overlay pill-box removed entirely
-- CRF 28 (was 23) — slightly smaller file, still visually excellent
-"""
+"""Video renderer for SnapReel — streaming scene rendering to FFmpeg pipe."""
 
 from __future__ import annotations
 
-import logging
-import os
-import math
 import gc
+import logging
+import math
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -28,17 +20,12 @@ from snapreel.templates.common import (
     DEFAULT_FPS,
     clear_bg_cache,
     draw_kinetic_captions,
-    prepare_kinetic_captions,
-    get_canvas_size,
-    set_canvas,
     ease_in_out_cubic,
+    get_canvas_size,
+    prepare_kinetic_captions,
+    set_canvas,
 )
-from snapreel.transitions import (
-    TRANSITION_FRAMES,
-    blend_frames,
-    generate_transition,
-)
-from snapreel.tts import build_captions, get_caption_at_time
+from snapreel.transitions import TRANSITION_FRAMES, blend_frames
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +40,7 @@ def _render_scene_with_captions(
     audio_duration: float,
     fps: int = RENDER_FPS,
     global_frame_offset_for_bg: int = 0,
+    on_frame: Optional[Callable[[Image.Image, int], None]] = None,
 ) -> list[Image.Image]:
     """Render a single scene's frames with kinetic captions baked in."""
     template_name = scene.template
@@ -69,6 +57,26 @@ def _render_scene_with_captions(
     if template_mod is None:
         raise ValueError(f"Unknown template: '{template_name}'")
 
+    narration = scene.narration or ""
+    caption_data = None
+    if narration and audio_duration > 0:
+        caption_data = prepare_kinetic_captions(narration, audio_duration)
+
+    if on_frame is not None:
+        def _cb(frame: Image.Image, fi: int) -> None:
+            if caption_data is not None:
+                draw_kinetic_captions(frame, narration, fi / fps, audio_duration, cached_data=caption_data)
+            on_frame(frame, fi)
+
+        template_mod.render_frames(
+            payload,
+            duration=dur,
+            fps=fps,
+            global_frame_offset=global_frame_offset_for_bg,
+            on_frame=_cb,
+        )
+        return []
+
     frames = template_mod.render_frames(
         payload,
         duration=dur,
@@ -76,10 +84,7 @@ def _render_scene_with_captions(
         global_frame_offset=global_frame_offset_for_bg,
     )
 
-    # Bake kinetic captions directly onto each frame
-    narration = scene.narration or ""
-    if narration and audio_duration > 0:
-        caption_data = prepare_kinetic_captions(narration, audio_duration)
+    if caption_data is not None:
         for fi, frame in enumerate(frames):
             t = fi / fps
             draw_kinetic_captions(frame, narration, t, audio_duration, cached_data=caption_data)
@@ -203,69 +208,61 @@ def render_video(
                 else 0.0
             )
             logger.info("Rendering scene %d/%d (template: %s)...", idx + 1, total_scenes, scene.template)
-            frames = _render_scene_with_captions(
+
+            total_scene_frames = scene_frame_counts[idx]
+            has_next = idx < total_scenes - 1
+            trans_mode = getattr(scene, "transition", "fade") or "fade"
+            n_trans = min(TRANSITION_FRAMES, total_scene_frames // 2) if (has_next and trans_mode != "none" and total_scene_frames > 1) else 0
+            split_frame_idx = total_scene_frames - n_trans
+
+            curr_tail: list[Image.Image] = []
+
+            def _handle_frame(frame: Image.Image, fi: int) -> None:
+                nonlocal frames_written, prev_transition_tail
+                out_frame = frame if frame.mode == "RGB" else frame.convert("RGB")
+
+                # Blend transition from previous scene if pending
+                if fi == 0 and prev_transition_tail is not None:
+                    n_prev = len(prev_transition_tail)
+                    for ti in range(n_prev):
+                        blended = blend_frames(
+                            prev_transition_tail[ti],
+                            out_frame,
+                            ease_in_out_cubic((ti + 1) / (n_prev + 1)),
+                            mode=prev_trans_mode,
+                        )
+                        proc.stdin.write(blended.tobytes())
+                        frames_written += 1
+                    prev_transition_tail = None
+
+                # Write directly or buffer in tail for next transition
+                if fi < split_frame_idx:
+                    proc.stdin.write(out_frame.tobytes())
+                    frames_written += 1
+                else:
+                    curr_tail.append(out_frame)
+
+            _render_scene_with_captions(
                 scene,
                 global_frame_offset=0,
                 audio_duration=audio_dur,
                 fps=fps,
                 global_frame_offset_for_bg=cumulative_offsets[idx],
+                on_frame=_handle_frame,
             )
 
-            # 1. Blend transition from previous scene if pending
-            if prev_transition_tail is not None:
-                if len(frames) > 0:
-                    n_trans = len(prev_transition_tail)
-                    first_frame = frames[0]
-                    for i in range(n_trans):
-                        blended = blend_frames(
-                            prev_transition_tail[i],
-                            first_frame,
-                            ease_in_out_cubic((i + 1) / (n_trans + 1)),
-                            mode=prev_trans_mode,
-                        )
-                        out_frame = blended if blended.mode == "RGB" else blended.convert("RGB")
-                        proc.stdin.write(out_frame.tobytes())
-                        frames_written += 1
-                else:
-                    for tf in prev_transition_tail:
-                        out_frame = tf if tf.mode == "RGB" else tf.convert("RGB")
-                        proc.stdin.write(out_frame.tobytes())
-                        frames_written += 1
-                prev_transition_tail = None
-
-            # 2. Check if this scene transitions into the next scene
-            has_next = idx < total_scenes - 1
-            trans_mode = getattr(scene, "transition", "fade") or "fade"
-            if has_next and trans_mode != "none" and len(frames) > 1:
-                n_trans = min(TRANSITION_FRAMES, len(frames) // 2)
-                direct_frames = frames[:-n_trans]
-                prev_transition_tail = frames[-n_trans:]
-                prev_trans_mode = trans_mode
-            else:
-                direct_frames = frames
-                prev_transition_tail = None
-
-            # 3. Stream direct frames to ffmpeg pipe immediately
-            for frame in direct_frames:
-                out_frame = frame if frame.mode == "RGB" else frame.convert("RGB")
-                proc.stdin.write(out_frame.tobytes())
-                frames_written += 1
-
-            # 4. Free frames memory immediately
-            del direct_frames
-            del frames
+            prev_transition_tail = curr_tail if curr_tail else None
+            prev_trans_mode = trans_mode
             clear_bg_cache()
             gc.collect()
 
-            # 5. Notify progress (scene rendered & streamed)
             if on_progress:
                 on_progress(idx, total_scenes)
 
         # Flush any trailing transition tail if present
         if prev_transition_tail:
             for tf in prev_transition_tail:
-                out_frame = tf if tf.mode == "RGB" else tf.convert("RGB")
-                proc.stdin.write(out_frame.tobytes())
+                proc.stdin.write(tf.tobytes())
                 frames_written += 1
             prev_transition_tail = None
             clear_bg_cache()

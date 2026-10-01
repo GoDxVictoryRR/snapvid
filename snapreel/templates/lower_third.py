@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Callable, Optional
 from PIL import Image, ImageDraw
 
 from snapreel.templates.common import (
@@ -21,7 +21,13 @@ from snapreel.templates.common import (
 )
 
 
-def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS, global_frame_offset: int = 0) -> list[Image.Image]:
+def render_frames(
+    data: dict[str, Any],
+    duration: float,
+    fps: int = DEFAULT_FPS,
+    global_frame_offset: int = 0,
+    on_frame: Optional[Callable[[Image.Image, int], None]] = None,
+) -> list[Image.Image]:
     """Render lower third banner with slide-in animation from left, text width clamping, and fade out at end."""
     total_frames = max(1, math.ceil(duration * fps))
     name_text = str(data.get("name") or "").strip()
@@ -103,6 +109,10 @@ def render_frames(data: dict[str, Any], duration: float, fps: int = DEFAULT_FPS,
             canvas.alpha_composite(overlay)
 
         canvas = apply_grain(canvas, strength=0.015, frame_idx=f)
-        frames.append(canvas.convert("RGB"))
+        out_f = canvas.convert("RGB")
+        if on_frame is not None:
+            on_frame(out_f, f)
+        else:
+            frames.append(out_f)
 
     return frames
