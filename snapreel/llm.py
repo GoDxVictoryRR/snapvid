@@ -273,6 +273,10 @@ def llm_complete(
             # Retry transient server errors (429, 500, 502, 503, 504)
             if status_code in (429, 500, 502, 503, 504) and http_attempt < max_http_retries - 1:
                 wait_sec = 0.0 if is_test_env else (http_attempt + 1) * 2.0
+                # If Ollama encountered a CUDA / VRAM out-of-memory error, fall back to CPU
+                if ":11434" in url and any(kw in detail.lower() for kw in ("out of memory", "cudamalloc", "unable to allocate")):
+                    logger.warning("Ollama reported VRAM out-of-memory; falling back to CPU offload (num_gpu=0)...")
+                    body["options"] = {"num_gpu": 0}
                 logger.warning(
                     "LLM HTTP %d on %s%s; retrying in %.1fs (attempt %d/%d)...",
                     status_code, url, detail, wait_sec, http_attempt + 1, max_http_retries

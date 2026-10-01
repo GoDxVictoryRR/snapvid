@@ -343,12 +343,133 @@ class Scene(BaseModel):
         return self
 
 
+def _sanitize_script_dict(data: dict[str, Any]) -> dict[str, Any]:
+    """Auto-repair and sanitize string lengths and template mismatches from LLM outputs."""
+    if not isinstance(data, dict):
+        return data
+    data = dict(data)
+
+    if "title" in data and isinstance(data["title"], str):
+        data["title"] = data["title"][:80].strip()
+
+    raw_scenes = data.get("scenes")
+    if isinstance(raw_scenes, list):
+        sanitized_scenes = []
+        for sc in raw_scenes:
+            if not isinstance(sc, dict):
+                sanitized_scenes.append(sc)
+                continue
+            sc = dict(sc)
+
+            tmpl = _fix_template_name(str(sc.get("template", "title")).strip())
+            sc["template"] = tmpl
+
+            sdata = sc.get("data")
+            if isinstance(sdata, dict):
+                sdata = dict(sdata)
+                # Repair template mismatch if LLM put bar_chart or bullets data in kinetic
+                if tmpl == "kinetic":
+                    if "labels" in sdata and "values" in sdata:
+                        tmpl = sc["template"] = "bar_chart"
+                    elif "items" in sdata and "lines" not in sdata:
+                        tmpl = sc["template"] = "bullets"
+                    elif "lines" not in sdata:
+                        extracted = [str(sdata[k])[:80].strip() for k in ("heading", "title", "text", "body") if sdata.get(k)]
+                        if "items" in sdata and isinstance(sdata["items"], list):
+                            extracted.extend([str(x)[:80].strip() for x in sdata["items"][:5]])
+                        sdata["lines"] = extracted[:5] if extracted else ["Key takeaway"]
+
+                elif tmpl == "bar_chart":
+                    if "lines" in sdata and "values" not in sdata:
+                        tmpl = sc["template"] = "kinetic"
+
+                # Clamp string fields to their schema limits
+                if tmpl == "title":
+                    if "heading" in sdata and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+                    if sdata.get("subheading") and isinstance(sdata["subheading"], str):
+                        sdata["subheading"] = sdata["subheading"][:120].strip()
+                elif tmpl == "bullets":
+                    if "heading" in sdata and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+                    if isinstance(sdata.get("items"), list):
+                        sdata["items"] = [str(it)[:120].strip() for it in sdata["items"]]
+                    elif isinstance(sdata.get("lines"), list):
+                        sdata["items"] = [str(ln)[:120].strip() for ln in sdata["lines"]]
+                elif tmpl == "kinetic":
+                    lines = sdata.get("lines")
+                    if isinstance(lines, list):
+                        sdata["lines"] = [str(ln)[:80].strip() for ln in lines]
+                    elif isinstance(lines, str):
+                        sdata["lines"] = [lines[:80].strip()]
+                elif tmpl == "quote":
+                    if "author" in sdata and "attribution" not in sdata:
+                        sdata["attribution"] = sdata.pop("author")
+                    if "text" in sdata and isinstance(sdata["text"], str):
+                        sdata["text"] = sdata["text"][:200].strip()
+                    if sdata.get("attribution") and isinstance(sdata["attribution"], str):
+                        sdata["attribution"] = sdata["attribution"][:60].strip()
+                elif tmpl == "lower_third":
+                    if "name" in sdata and isinstance(sdata["name"], str):
+                        sdata["name"] = sdata["name"][:40].strip()
+                    if sdata.get("role") and isinstance(sdata["role"], str):
+                        sdata["role"] = sdata["role"][:60].strip()
+                elif tmpl == "split":
+                    if sdata.get("heading") and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+                    if not sdata.get("heading"):
+                        sdata["heading"] = "Comparison"
+                    if not sdata.get("body") and (sdata.get("left") or sdata.get("right")):
+                        sdata["body"] = f"{sdata.get('left', '')} vs {sdata.get('right', '')}"
+                    if sdata.get("body") and isinstance(sdata["body"], str):
+                        sdata["body"] = sdata["body"][:200].strip()
+                elif tmpl == "icon_list":
+                    if sdata.get("heading") and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+                    if isinstance(sdata.get("items"), list):
+                        items = []
+                        for it in sdata["items"]:
+                            if isinstance(it, dict):
+                                it = dict(it)
+                                if "label" in it and "text" not in it:
+                                    it["text"] = it.pop("label")
+                                if "text" in it and isinstance(it["text"], str):
+                                    it["text"] = it["text"][:80].strip()
+                                items.append(it)
+                            else:
+                                items.append(it)
+                        sdata["items"] = items
+                elif tmpl == "bar_chart":
+                    if "heading" in sdata and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+                    if sdata.get("unit") and isinstance(sdata["unit"], str):
+                        sdata["unit"] = sdata["unit"][:30].strip()
+                elif tmpl == "code_block":
+                    if sdata.get("heading") and isinstance(sdata["heading"], str):
+                        sdata["heading"] = sdata["heading"][:80].strip()
+
+                sc["data"] = sdata
+
+            sanitized_scenes.append(sc)
+
+        data["scenes"] = sanitized_scenes
+
+    return data
+
+
 class SceneScript(BaseModel):
     title: str = Field(..., max_length=80)
     target_duration: int = 60
     aspect_ratio: str = "16:9"
     total_duration: float
     scenes: list[Scene] = Field(..., min_length=1, max_length=30)
+
+    @model_validator(mode="before")
+    @classmethod
+    def pre_sanitize(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return _sanitize_script_dict(v)
+        return v
 
     @field_validator("aspect_ratio")
     @classmethod
