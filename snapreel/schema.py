@@ -369,17 +369,54 @@ class SceneScript(BaseModel):
         return self
 
 
+def _extract_json_content(text: str) -> str:
+    """Extract JSON object from LLM responses that may include thinking process, preambles, or markdown."""
+    text = text.strip()
+    if not text:
+        return text
+
+    # 1. Strip thinking tags <think>...</think> if present
+    text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
+
+    # 2. Look for markdown code fence containing JSON with "scenes" or "title"
+    fences = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    for fence in reversed(fences):
+        f = fence.strip()
+        if "{" in f and "}" in f and ("scenes" in f or "title" in f):
+            first = f.find("{")
+            last = f.rfind("}")
+            if first != -1 and last > first:
+                return f[first:last + 1]
+
+    # 3. Look for the outermost JSON object if there is conversational preamble (e.g. "Here's a thinking process...")
+    first_brace = text.find("{")
+    if first_brace != -1:
+        last_brace = text.rfind("}")
+        if last_brace > first_brace:
+            return text[first_brace:last_brace + 1]
+        else:
+            # Truncated JSON starting at first_brace
+            return text[first_brace:]
+
+    return text
+
+
 def _repair_json(text: str) -> str:
     """Attempt to auto-repair common LLM JSON formatting errors.
 
     Handles:
+    - Thinking processes, chain-of-thought, or conversational preambles
+    - Markdown code fences (even if preceded by conversational text)
     - Trailing commas before } or ] (e.g. ``{"a": 1,}``)
     - Missing comma between adjacent closing/opening braces (e.g. ``} {``)
     - Smart/curly quotes replaced with straight quotes
     - Truncated JSON: attempt to close unclosed braces/brackets
     - Lone backslash before a normal character (invalid escape)
     """
-    # 1. Strip markdown fences
+    # 0. Extract JSON if wrapped in thinking tokens or conversational text
+    text = _extract_json_content(text)
+
+    # 1. Strip markdown fences if still present
     if text.startswith("```"):
         lines = text.splitlines()
         lines = lines[1:] if lines[0].startswith("```") else lines

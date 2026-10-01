@@ -32,7 +32,10 @@ def build_prompt(topic: str, target_duration: int = 60, aspect_ratio: str = "16:
     )
     return (
         f"Create an engaging explainer video script on the topic: {clean_topic}. "
-        f"Target video length: {target_duration} seconds. Aspect ratio: {aspect_ratio}."
+        f"Target video length: {target_duration} seconds. Aspect ratio: {aspect_ratio}.\n"
+        f"CRITICAL: Output ONLY a single raw JSON object matching the schema. "
+        f"Do NOT write any thinking process, reasoning steps, or conversational preamble. "
+        f"Start directly with '{{' and end with '}}'."
     )
 
 

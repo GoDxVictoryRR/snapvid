@@ -394,3 +394,79 @@ def test_15_auto_repair_trailing_comma():
 }"""
     script = validate_script(broken_json)
     assert script.title == "Test"
+
+
+def test_16_auto_extract_json_with_thinking_preamble():
+    """Case 16: LLM output with thinking process or conversational preamble is cleanly extracted."""
+    # Test with thinking process followed by markdown code fence
+    llm_output_fenced = """Here's a thinking process that leads to the suggested script:
+1. Understand the goal: explain Transformer architecture simply.
+2. Structure the scenes into intro, attention, and backpropagation.
+3. Keep total duration to 6 seconds.
+
+```json
+{
+  "title": "Transformer Architecture",
+  "total_duration": 6.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 3.0,
+      "narration": "Transformers revolutionized natural language processing.",
+      "data": {"heading": "Transformers", "subheading": "Attention is All You Need"}
+    },
+    {
+      "id": "s2",
+      "template": "kinetic",
+      "duration": 3.0,
+      "narration": "Self-attention processes tokens in parallel.",
+      "data": {"lines": ["Self-Attention", "Parallel Compute"]}
+    }
+  ]
+}
+```
+Hope this script helps!"""
+    script1 = validate_script(llm_output_fenced)
+    assert script1.title == "Transformer Architecture"
+    assert len(script1.scenes) == 2
+
+    # Test with thinking process followed by raw JSON (no fences)
+    llm_output_raw = """Here's a thinking process that leads to the suggested script:
+{
+  "title": "Transformers Simply",
+  "total_duration": 3.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 3.0,
+      "narration": "Transformers in three seconds.",
+      "data": {"heading": "Transformers", "subheading": null}
+    }
+  ]
+}"""
+    script2 = validate_script(llm_output_raw)
+    assert script2.title == "Transformers Simply"
+
+    # Test with <think> tag
+    llm_output_think = """<think>
+Deep reasoning steps...
+Evaluating scene durations...
+</think>
+{
+  "title": "Think Tag Test",
+  "total_duration": 3.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 3.0,
+      "narration": "Testing think tag stripping.",
+      "data": {"heading": "Think Tag", "subheading": null}
+    }
+  ]
+}"""
+    script3 = validate_script(llm_output_think)
+    assert script3.title == "Think Tag Test"
+

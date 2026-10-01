@@ -30,7 +30,11 @@ class LLMError(Exception):
     """Exception raised when an LLM call or script repair loop fails."""
 
 
-PLANNER_SYSTEM_PROMPT = """You are a video script planner. Output ONLY a single valid JSON object — no markdown, no explanation.
+PLANNER_SYSTEM_PROMPT = """You are a video script planner. Output ONLY a single valid JSON object.
+CRITICAL INSTRUCTIONS:
+- Do NOT output any thinking process, chain-of-thought, reasoning notes, or conversational preamble (NEVER write "Here's a thinking process" or "Certainly!").
+- Do NOT output markdown formatting outside the JSON.
+- Your entire response MUST start immediately with the character '{' and end with '}'.
 
 The JSON must match this exact schema:
 {
@@ -209,8 +213,8 @@ def llm_complete(
         url = resolved_base_url.rstrip("/") + "/chat/completions"
         body["stream"] = False
         body["top_p"] = 1.0
-        # Critical for NVIDIA NIM / OpenAI endpoints: explicit max_tokens prevents 500 gateway parse errors
-        body["max_tokens"] = int(os.environ.get("LLM_MAX_TOKENS", 4096))
+        # Explicit max_tokens prevents gateway buffer errors; 8192 provides ample space for 90s-180s scripts
+        body["max_tokens"] = int(os.environ.get("LLM_MAX_TOKENS", 8192))
 
     timeout_sec = timeout if timeout is not None else int(os.environ.get("LLM_TIMEOUT", 300))
 
@@ -230,8 +234,6 @@ def llm_complete(
                 {"role": "user", "content": f"{system}\n\nTask:\n{prompt}"}
             ]
             logger.info("Retrying LLM call with combined system-user prompt format...")
-        elif http_attempt == 2 and "max_tokens" in current_body:
-            current_body["max_tokens"] = 2048
 
         try:
             response = requests.post(url, json=current_body, headers=headers, timeout=timeout_sec)
@@ -250,6 +252,9 @@ def llm_complete(
                 content = msg.get("reasoning")
             if content is None:
                 content = ""
+            # Strip <think>...</think> tags if returned by reasoning models
+            if content and "<think>" in content.lower():
+                content = re.sub(r"(?is)<think>.*?</think>", "", content).strip()
             return content
         except requests.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else 0
@@ -396,6 +401,15 @@ def generate_scene_script(
                 prompt = REPAIR_PROMPT_TOO_SHORT.format(
                     actual=actual_s,
                     target=target_duration,
+                )
+            elif "Invalid JSON" in err_str or "Expecting value" in err_str or not response.strip().startswith("{"):
+                clean_t = re.sub(r"(?i)\s+in\s+\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)\s*\??\s*$", "", topic.strip())
+                prompt = (
+                    f"Create an engaging explainer video script on the topic: {clean_t}. "
+                    f"Target video length: {target_duration} seconds.\n"
+                    f"CRITICAL: Output ONLY a single raw JSON object matching the schema. "
+                    f"Do NOT write any thinking process, reasoning steps, or conversational preamble. "
+                    f"Your response MUST start with '{{' and end with '}}'."
                 )
             else:
                 prompt = REPAIR_PROMPT.format(error=last_error)
