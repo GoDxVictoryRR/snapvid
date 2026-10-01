@@ -702,6 +702,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Liquid Glass Theme Management (Dark & Light Mode)
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  const themeModeText = document.getElementById("theme-mode-text");
+
+  function applyTheme(theme) {
+    const validTheme = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", validTheme);
+    document.body.setAttribute("data-theme", validTheme);
+    localStorage.setItem("snapvid_theme", validTheme);
+    if (themeModeText) {
+      themeModeText.textContent = validTheme === "light" ? "Light" : "Dark";
+    }
+    if (themeToggleBtn) {
+      themeToggleBtn.setAttribute("data-current-theme", validTheme);
+      themeToggleBtn.setAttribute("title", `Switch to ${validTheme === "light" ? "Dark" : "Light"} mode`);
+    }
+  }
+
+  const savedTheme = localStorage.getItem("snapvid_theme") || "dark";
+  applyTheme(savedTheme);
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      applyTheme(current === "dark" ? "light" : "dark");
+    });
+  }
+
   // Initial load
   loadSettings();
   loadHistory();
