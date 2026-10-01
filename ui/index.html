@@ -3,213 +3,405 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SnapVid — Agentic AI Video Maker</title>
+  <title>SnapVid — Studio Pro Video Maker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.0">
+  <link rel="stylesheet" href="style.css?v=3.0">
 </head>
-<body>
-  <div class="glow-bg"></div>
+<body class="studio-body">
+  <!-- Dynamic Ambient Lighting Grid -->
+  <div class="studio-ambient-canvas" aria-hidden="true">
+    <div class="ambient-glow glow-primary"></div>
+    <div class="ambient-glow glow-secondary"></div>
+    <div class="ambient-glow glow-accent"></div>
+    <div class="studio-grid-overlay"></div>
+  </div>
 
-  <!-- Top Navbar / Header -->
+  <!-- Studio Master Topbar -->
   <header class="app-header">
-    <div class="brand">
-      <div class="brand-logo" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-          <defs>
-            <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#F43F5E" />
-              <stop offset="50%" stop-color="#A855F7" />
-              <stop offset="100%" stop-color="#38BDF8" />
-            </linearGradient>
-          </defs>
-          <rect x="2" y="3" width="20" height="18" rx="4" fill="url(#brand-grad)" />
-          <path d="M7 3v4M12 3v4M17 3v4M7 17v4M12 17v4M17 17v4M2 8h20M2 16h20" stroke="#080B13" stroke-width="2" stroke-linecap="round"/>
-          <polygon points="10,10.5 15,12 10,13.5" fill="#FFFFFF"/>
-        </svg>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <defs>
+              <linearGradient id="snapvid-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FF3366" />
+                <stop offset="50%" stop-color="#8B5CF6" />
+                <stop offset="100%" stop-color="#06B6D4" />
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="24" height="24" rx="7" fill="url(#snapvid-grad)" />
+            <path d="M6 8h16M6 20h16M10 2v6M18 2v6M10 20v6M18 20v6" stroke="#060913" stroke-width="2" stroke-linecap="round" />
+            <polygon points="12,11 18,14 12,17" fill="#FFFFFF" />
+          </svg>
+        </div>
+        <div class="brand-info">
+          <div class="brand-title-row">
+            <h1 class="brand-title">SnapVid</h1>
+            <span class="pro-tag">STUDIO</span>
+          </div>
+          <span class="brand-sub">Agentic Explainer Engine</span>
+        </div>
       </div>
-      <div class="brand-info">
-        <h1 class="brand-title">SnapVid</h1>
-        <span class="brand-sub">Agentic Video Maker</span>
+
+      <!-- Studio Mode Pill -->
+      <div class="studio-pipeline-pill" title="Active Creative Pipeline">
+        <span class="pipeline-step"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Audio-First Sync</span>
+        <span class="pipeline-divider">•</span>
+        <span class="pipeline-step">10 Motion Templates</span>
+        <span class="pipeline-divider">•</span>
+        <span class="pipeline-step">Multi-Aspect Canvas</span>
       </div>
-    </div>
-    <div class="header-badges">
-      <div class="badge npu-badge" id="npu-badge" title="Hardware Acceleration Status">
-        <span class="pulse-dot"></span>
-        <span id="badge-npu-text">Snapdragon NPU Ready</span>
+
+      <!-- Header Status Actions -->
+      <div class="header-badges">
+        <div class="badge npu-badge" id="npu-badge" title="Hardware Acceleration Status">
+          <span class="pulse-dot"></span>
+          <span id="badge-npu-text">Snapdragon NPU Ready</span>
+        </div>
+        <button id="open-settings-btn" class="icon-btn settings-btn" title="Engine & Provider Settings">
+          <span class="gear-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </span>
+          <span class="settings-btn-label">Settings</span>
+        </button>
       </div>
-      <button id="open-settings-btn" class="icon-btn settings-btn" title="Settings & Hardware">
-        <span class="gear-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-        <span class="settings-btn-label">Settings</span>
-      </button>
     </div>
   </header>
 
-  <!-- Main 2-Column Content Layout -->
+  <!-- Main Studio Workspace -->
   <main class="main-layout">
-    <!-- Left / Center Column (Primary Flow) -->
+    <!-- Left Column (Primary Creation Flow) -->
     <div class="primary-column">
-      <!-- Input Card -->
+      
+      <!-- Primary Creation Card -->
       <section class="card input-card">
         <div class="card-header">
-          <label for="topic" class="input-label">What would you like to explain?</label>
-          <span class="hint-label">Self-healing multi-scene agent</span>
+          <div class="card-header-left">
+            <span class="section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </span>
+            <div>
+              <label for="topic" class="input-label">What do you want to explain?</label>
+              <p class="input-subtitle">Autonomous two-agent pipeline drafts narration, generates slides, and renders broadcast video.</p>
+            </div>
+          </div>
+          <span class="shortcut-chip" title="Press Ctrl+Enter anytime to generate">Ctrl + ↵</span>
         </div>
+
         <div class="input-group">
-          <textarea
-            id="topic"
-            placeholder="e.g. How does photosynthesis turn light into chemical energy?"
-            rows="3"
-          ></textarea>
-
-          <!-- Video Length Selector -->
-          <div class="format-row">
-            <label class="format-label">Length</label>
-            <div class="preset-pills" id="duration-pills">
-              <button type="button" class="pill-btn active" data-seconds="60">60s</button>
-              <button type="button" class="pill-btn" data-seconds="30">30s</button>
-              <button type="button" class="pill-btn" data-seconds="90">90s</button>
-              <button type="button" class="pill-btn" data-seconds="120">2 min</button>
-              <button type="button" class="pill-btn" data-seconds="300">5 min</button>
-              <button type="button" class="pill-btn" data-seconds="custom">Custom</button>
-            </div>
-            <input type="number" id="custom-duration" placeholder="sec" min="15" max="600" class="custom-duration-input" style="display:none" />
+          <!-- Textarea Container -->
+          <div class="textarea-wrapper">
+            <textarea
+              id="topic"
+              placeholder="e.g. Explain how transformers and self-attention mechanisms work in large language models..."
+              rows="3"
+            ></textarea>
           </div>
 
-          <!-- Aspect Ratio Selector -->
-          <div class="format-row">
-            <label class="format-label">Format</label>
+          <!-- Video Duration Module -->
+          <div class="config-bar">
+            <div class="config-label-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span class="config-title">Length</span>
+            </div>
+            <div class="config-bar-row">
+              <div class="preset-pills" id="duration-pills">
+                <button type="button" class="pill-btn" data-seconds="30">
+                  <span class="pill-title">30s</span>
+                  <span class="pill-sub">Short</span>
+                </button>
+                <button type="button" class="pill-btn active" data-seconds="60">
+                  <span class="pill-title">60s</span>
+                  <span class="pill-sub">Standard</span>
+                </button>
+                <button type="button" class="pill-btn" data-seconds="90">
+                  <span class="pill-title">90s</span>
+                  <span class="pill-sub">Brief</span>
+                </button>
+                <button type="button" class="pill-btn" data-seconds="120">
+                  <span class="pill-title">2 min</span>
+                  <span class="pill-sub">Explainer</span>
+                </button>
+                <button type="button" class="pill-btn" data-seconds="300">
+                  <span class="pill-title">5 min</span>
+                  <span class="pill-sub">Deep Dive</span>
+                </button>
+                <button type="button" class="pill-btn" data-seconds="custom">
+                  <span class="pill-title">Custom</span>
+                </button>
+              </div>
+              <input type="number" id="custom-duration" placeholder="seconds (15-600)" min="15" max="600" class="custom-duration-input" style="display:none" />
+            </div>
+          </div>
+
+          <!-- Aspect Ratio Canvas Module -->
+          <div class="config-bar">
+            <div class="config-label-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span class="config-title">Format</span>
+            </div>
             <div class="ratio-pills" id="ratio-pills">
-              <button type="button" class="pill-btn active" data-ratio="16:9">16:9 YouTube</button>
-              <button type="button" class="pill-btn" data-ratio="9:16">9:16 Shorts</button>
-              <button type="button" class="pill-btn" data-ratio="1:1">1:1 Instagram</button>
-              <button type="button" class="pill-btn" data-ratio="4:3">4:3 Classic</button>
+              <button type="button" class="pill-btn active" data-ratio="16:9">
+                <span class="ratio-icon ratio-16-9" aria-hidden="true"></span>
+                <span class="pill-title">16:9</span>
+                <span class="pill-sub">YouTube / Web</span>
+              </button>
+              <button type="button" class="pill-btn" data-ratio="9:16">
+                <span class="ratio-icon ratio-9-16" aria-hidden="true"></span>
+                <span class="pill-title">9:16</span>
+                <span class="pill-sub">Reels / Shorts</span>
+              </button>
+              <button type="button" class="pill-btn" data-ratio="1:1">
+                <span class="ratio-icon ratio-1-1" aria-hidden="true"></span>
+                <span class="pill-title">1:1</span>
+                <span class="pill-sub">Feed / Square</span>
+              </button>
+              <button type="button" class="pill-btn" data-ratio="4:3">
+                <span class="ratio-icon ratio-4-3" aria-hidden="true"></span>
+                <span class="pill-title">4:3</span>
+                <span class="pill-sub">Classic Deck</span>
+              </button>
             </div>
           </div>
 
+          <!-- Action & Engine Telemetry Bar -->
           <div class="generate-bar">
-            <button id="generate-btn" class="btn-primary">
+            <button id="generate-btn" class="btn-primary" title="Launch Autonomous Video Creation">
+              <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </span>
               <span class="btn-text">Generate Video</span>
               <span class="btn-spinner" hidden></span>
             </button>
+
             <div id="live-llm-meta" class="live-meta">
-              <span id="active-model-tag" class="meta-tag">Model: Loading...</span>
-              <span id="active-voice-tag" class="meta-tag">Voice: Auto</span>
+              <div class="meta-tag model-tag" id="active-model-tag" title="Active Model">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                <span>Model: Loading...</span>
+              </div>
+              <div class="meta-tag voice-tag" id="active-voice-tag" title="Active TTS Engine">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <span>Voice: Auto</span>
+              </div>
             </div>
           </div>
         </div>
 
+        <!-- Inspiration Chips -->
         <div class="quick-tags">
-          <span class="tag-label">Try:</span>
-          <button type="button" class="tag-btn" data-topic="How does photosynthesis turn sunlight into sugar in 60s">Photosynthesis</button>
-          <button type="button" class="tag-btn" data-topic="Explain Neural Networks and backpropagation simply">Neural Networks</button>
-          <button type="button" class="tag-btn" data-topic="Why Snapdragon NPU acceleration enables offline on-device AI">Snapdragon NPU</button>
-          <button type="button" class="tag-btn" data-topic="How quantum computers use superposition and entanglement">Quantum Qubits</button>
+          <span class="tag-label">Inspiration:</span>
+          <button type="button" class="tag-btn tag-science" data-topic="How does photosynthesis turn sunlight into chemical energy and glucose in 60s">
+            <span class="cat-dot dot-science"></span>Photosynthesis
+          </button>
+          <button type="button" class="tag-btn tag-tech" data-topic="Explain Transformer architecture, attention heads, and backpropagation simply">
+            <span class="cat-dot dot-tech"></span>Neural Networks
+          </button>
+          <button type="button" class="tag-btn tag-hardware" data-topic="Why Snapdragon Hexagon NPU enables zero-latency local-first on-device AI">
+            <span class="cat-dot dot-hardware"></span>Snapdragon NPU
+          </button>
+          <button type="button" class="tag-btn tag-quantum" data-topic="How quantum computers use superposition and entanglement to solve intractable problems">
+            <span class="cat-dot dot-quantum"></span>Quantum Qubits
+          </button>
         </div>
       </section>
 
-      <!-- Live Agent Activity Panel (Streams SSE from /events/{job_id}) -->
+      <!-- Live Agent Mission Control Panel -->
       <section id="agent-panel" class="card agent-card" hidden>
         <div class="agent-header">
           <div class="agent-title-wrap">
-            <span class="agent-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg></span>
-            <h3>Agent Activity</h3>
+            <span class="agent-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="10" rx="2"/>
+                <circle cx="12" cy="5" r="2"/>
+                <path d="M12 7v4"/>
+                <line x1="8" y1="16" x2="8" y2="16"/>
+                <line x1="16" y1="16" x2="16" y2="16"/>
+              </svg>
+            </span>
+            <div>
+              <h3>Agent Mission Control</h3>
+              <p class="agent-sub">Live telemetry stream from autonomous planning & rendering workers</p>
+            </div>
           </div>
           <div class="agent-actions">
             <span id="agent-status-badge" class="badge running">Running</span>
           </div>
         </div>
+
+        <!-- Pipeline Workflow Stage Indicator -->
+        <div class="pipeline-stepper" aria-label="Pipeline Stages">
+          <div class="step-item active" id="step-plan">
+            <span class="step-num">1</span>
+            <span class="step-txt">Scene Planning</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-item" id="step-tts">
+            <span class="step-num">2</span>
+            <span class="step-txt">Voice Narration</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-item" id="step-render">
+            <span class="step-num">3</span>
+            <span class="step-txt">Pillow Frames</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-item" id="step-mux">
+            <span class="step-num">4</span>
+            <span class="step-txt">FFmpeg Mux</span>
+          </div>
+        </div>
+
         <div id="agent-log" class="agent-log" role="log" aria-live="polite">
           <!-- Real-time agent event stream lines appended here -->
         </div>
       </section>
 
-      <!-- Progress / Loading Panel -->
+      <!-- Progress / Loading Monitor -->
       <section id="status-panel" class="card status-card" hidden>
         <div class="status-header">
-          <span class="status-indicator"></span>
-          <h3 id="status-title">Generating Video</h3>
+          <div class="status-header-left">
+            <span class="status-indicator"></span>
+            <div>
+              <h3 id="status-title">Generating Video</h3>
+              <p id="status-text" class="status-text">Planning scenes with local LLM...</p>
+            </div>
+          </div>
+          <span id="progress-percent" class="progress-percent">0%</span>
         </div>
         <div class="progress-bar-container">
           <div id="progress-fill" class="progress-bar-fill"></div>
         </div>
-        <div class="status-details">
-          <p id="status-text">Planning scenes with local LLM...</p>
-          <span id="progress-percent">0%</span>
-        </div>
       </section>
 
-      <!-- Result Panel -->
+      <!-- Video Screening Theater (Result Panel) -->
       <section id="result-panel" class="card result-card" hidden>
         <div class="result-header">
-          <div>
-            <h2>Your Video is Ready!</h2>
-            <p id="result-topic" class="result-topic-sub"></p>
+          <div class="result-header-left">
+            <span class="ready-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Render Complete
+            </span>
+            <h2 id="result-topic" class="result-topic-title">Your Video is Ready</h2>
           </div>
-          <span class="res-badge">1280x720 • 30 FPS</span>
+          <span class="res-badge">720p • 30 FPS • H.264 AAC</span>
         </div>
+
         <div class="video-wrapper">
           <video id="preview" controls width="640" preload="metadata"></video>
         </div>
+
         <div class="actions-row">
           <a id="download-link" class="btn-primary download-btn" download>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
             <span>Download MP4</span>
           </a>
           <button id="create-another-btn" class="btn-secondary">
-            Make Another Video
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Make Another Video</span>
           </button>
         </div>
       </section>
 
-      <!-- Error Panel -->
+      <!-- Error State Card -->
       <section id="error-panel" class="card error-card" hidden>
-        <div class="error-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <div class="error-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
         <div class="error-content">
           <h3>Generation Failed</h3>
           <p id="error-text">An error occurred during processing.</p>
           <button id="retry-btn" class="btn-secondary">Try Again</button>
         </div>
       </section>
+
     </div>
 
-    <!-- Right Column (Sidebar: History & Quick Benchmarks) -->
+    <!-- Right Sidebar (Telemetry & Production Gallery) -->
     <aside class="sidebar-column">
+      
+      <!-- Recent Productions Module -->
       <div class="card sidebar-card history-card">
         <div class="sidebar-header">
-          <span class="sidebar-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-          <h3>Recent Videos</h3>
+          <div class="sidebar-header-left">
+            <span class="sidebar-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </span>
+            <h3>Recent Productions</h3>
+          </div>
+          <span class="history-pill" title="Saved locally in output/">Local</span>
         </div>
         <div id="history-list" class="history-list">
           <div class="history-empty">No videos generated yet. Create one on the left!</div>
         </div>
       </div>
 
+      <!-- Hardware Engine Telemetry Module -->
       <div class="card sidebar-card benchmark-card">
         <div class="sidebar-header">
-          <span class="sidebar-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
-          <h3>NPU Benchmarks</h3>
+          <div class="sidebar-header-left">
+            <span class="sidebar-icon icon-amber">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </span>
+            <h3>Hardware Telemetry</h3>
+          </div>
+          <span class="telemetry-live-dot" title="Live System Metrics"></span>
         </div>
         <div class="benchmark-stats" id="benchmark-stats">
           <div class="bench-row">
-            <span class="bench-label">Device</span>
+            <span class="bench-label">Silicon Engine</span>
             <span class="bench-val" id="bench-device">Snapdragon X Elite</span>
           </div>
           <div class="bench-row">
-            <span class="bench-label">LLM Latency</span>
+            <span class="bench-label">Planning Latency</span>
             <span class="bench-val" id="bench-llm">~2.1s / scene</span>
           </div>
           <div class="bench-row">
-            <span class="bench-label">Throughput</span>
-            <span class="bench-val highlight" id="bench-tps">22 tok/s</span>
+            <span class="bench-label">LLM Throughput</span>
+            <span class="bench-val highlight-amber" id="bench-tps">22 tok/s</span>
           </div>
           <div class="bench-row">
-            <span class="bench-label">Renderer</span>
-            <span class="bench-val" id="bench-fps">30 fps native</span>
+            <span class="bench-label">Renderer Pipeline</span>
+            <span class="bench-val highlight-cyan" id="bench-fps">30 fps native</span>
           </div>
         </div>
       </div>
+
+      <!-- Features Checklist Card -->
+      <div class="card sidebar-card pro-card">
+        <div class="pro-card-header">
+          <span class="pro-icon">⚡</span>
+          <h4>SnapVid Engine Core</h4>
+        </div>
+        <ul class="pro-features-list">
+          <li><span class="check-glyph">✓</span> Pure Python (Pillow + NumPy + FFmpeg)</li>
+          <li><span class="check-glyph">✓</span> Word-Level Synchronized Karaoke Subtitles</li>
+          <li><span class="check-glyph">✓</span> Pydantic v2 Self-Healing JSON Loop</li>
+          <li><span class="check-glyph">✓</span> Zero Cloud Dependency at Runtime</li>
+        </ul>
+      </div>
+
     </aside>
   </main>
 
@@ -218,108 +410,127 @@
   <aside id="settings-drawer" class="settings-drawer" aria-hidden="true">
     <div class="drawer-header">
       <div class="drawer-title-wrap">
-        <span class="gear-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-        <h2>Settings & Engine</h2>
+        <span class="gear-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <h2>Studio Preferences</h2>
       </div>
       <button id="close-settings-btn" class="close-btn" title="Close Settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
       </button>
     </div>
 
     <div class="drawer-body">
-      <!-- 1. LLM Provider -->
-      <div class="form-group">
-        <label for="setting-provider">LLM Provider</label>
-        <select id="setting-provider" class="form-select">
-          <option value="ollama">Ollama (Local)</option>
-          <option value="geniex">Qualcomm GenieX (NPU)</option>
-          <option value="llamacpp">llama.cpp (Local)</option>
-          <option value="nvidia">NVIDIA NIM (Cloud API)</option>
-          <option value="gemini">Google Gemini (Cloud API)</option>
-          <option value="openai">OpenAI (Cloud)</option>
-          <option value="groq">Groq (Cloud Free & Fast)</option>
-          <option value="together">Together AI</option>
-          <option value="mistral">Mistral AI</option>
-          <option value="custom">Custom Endpoint</option>
-        </select>
-        <span class="field-hint">Select local NPU/LLM or cloud provider</span>
-      </div>
+      <!-- Section 1: LLM Engine -->
+      <div class="settings-section">
+        <h4 class="settings-sec-title">LLM Intelligence Engine</h4>
+        
+        <div class="form-group">
+          <label for="setting-provider">Provider Selection</label>
+          <select id="setting-provider" class="form-select">
+            <option value="ollama">Ollama (Local CPU/GPU)</option>
+            <option value="geniex">Qualcomm GenieX (Snapdragon NPU)</option>
+            <option value="llamacpp">llama.cpp / vLLM</option>
+            <option value="nvidia">NVIDIA NIM (Accelerated Cloud)</option>
+            <option value="gemini">Google Gemini (Fast Flash API)</option>
+            <option value="openai">OpenAI (GPT-4o Mini)</option>
+            <option value="groq">Groq (Ultra-Fast LPU)</option>
+            <option value="together">Together AI</option>
+            <option value="mistral">Mistral AI</option>
+            <option value="custom">Custom OpenAI-Compatible</option>
+          </select>
+          <span class="field-hint">Choose on-device hardware or high-speed cloud endpoint</span>
+        </div>
 
-      <!-- Base URL -->
-      <div class="form-group" id="group-base-url">
-        <label for="setting-base-url">LLM Base URL</label>
-        <input type="text" id="setting-base-url" class="form-input" placeholder="http://localhost:11434/v1">
-      </div>
+        <div class="form-group" id="group-base-url">
+          <label for="setting-base-url">Base URL</label>
+          <input type="text" id="setting-base-url" class="form-input" placeholder="http://localhost:11434/v1">
+        </div>
 
-      <!-- 2. Model Name -->
-      <div class="form-group">
-        <label for="setting-model">Model Name</label>
-        <input type="text" id="setting-model" class="form-input" placeholder="qwen2.5:3b">
-      </div>
+        <div class="form-group">
+          <label for="setting-model">Model Identifier</label>
+          <input type="text" id="setting-model" class="form-input" placeholder="qwen2.5:3b">
+        </div>
 
-      <!-- 3. API Key -->
-      <div class="form-group">
-        <label for="setting-api-key">API Key (optional)</label>
-        <input type="password" id="setting-api-key" class="form-input" placeholder="Leave blank for local backends">
-        <div class="privacy-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span><strong>Privacy First:</strong> Your personal API key is stored strictly in your browser and used in-memory for your requests. It is never logged or saved on the server.</span>
+        <div class="form-group">
+          <label for="setting-api-key">Personal API Key</label>
+          <input type="password" id="setting-api-key" class="form-input" placeholder="Leave blank for local backends">
+          <div class="privacy-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span><strong>Privacy First:</strong> Your key is held strictly in your browser and used in-memory for your session. It is never logged or stored on the server.</span>
+          </div>
+        </div>
+
+        <div class="connection-test-row">
+          <button id="test-llm-btn" type="button" class="btn-secondary test-btn">
+            Test Connection
+          </button>
+          <span id="test-llm-status" class="test-status"></span>
         </div>
       </div>
 
-      <!-- Connection Test Button -->
-      <div class="connection-test-row">
-        <button id="test-llm-btn" type="button" class="btn-secondary test-btn">
-          Test Connection
-        </button>
-        <span id="test-llm-status" class="test-status"></span>
+      <hr class="drawer-divider">
+
+      <!-- Section 2: Voice & Audio -->
+      <div class="settings-section">
+        <h4 class="settings-sec-title">Voice & Narration Engine</h4>
+
+        <div class="form-group">
+          <label for="setting-tts-engine">Engine Backend</label>
+          <select id="setting-tts-engine" class="form-select">
+            <option value="auto">Auto-Select (Kokoro ➔ Edge ➔ SAPI)</option>
+            <option value="kokoro">Kokoro TTS (Offline Neural 82M)</option>
+            <option value="edge">Edge TTS (Microsoft Neural Cloud)</option>
+            <option value="sapi">Windows SAPI (Native Offline Voice)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="setting-tts-voice">Voice Selection</label>
+          <select id="setting-tts-voice" class="form-select">
+            <!-- Dynamic options populated by JS -->
+          </select>
+        </div>
       </div>
 
       <hr class="drawer-divider">
 
-      <!-- 4. Voice Engine & Voice -->
-      <div class="form-group">
-        <label for="setting-tts-engine">Voice Engine</label>
-        <select id="setting-tts-engine" class="form-select">
-          <option value="auto">Auto-detect (Kokoro → Edge → SAPI)</option>
-          <option value="kokoro">Kokoro TTS (Offline Neural 82M)</option>
-          <option value="edge">Edge TTS (Microsoft Neural, Free)</option>
-          <option value="sapi">Windows SAPI (Offline System Default)</option>
-        </select>
-      </div>
+      <!-- Section 3: Agentic Quality Critic -->
+      <div class="settings-section">
+        <h4 class="settings-sec-title">Quality & Review</h4>
 
-      <div class="form-group">
-        <label for="setting-tts-voice">Voice</label>
-        <select id="setting-tts-voice" class="form-select">
-          <!-- Dynamic options populated by JS -->
-        </select>
-      </div>
-
-      <hr class="drawer-divider">
-
-      <!-- 5. Quality Critic Pass -->
-      <div class="form-group checkbox-group">
-        <label class="toggle-switch">
-          <input type="checkbox" id="setting-quality-pass" checked>
-          <span class="toggle-slider"></span>
-        </label>
-        <div class="toggle-label-wrap">
-          <span class="toggle-title">AI Quality Review Critic</span>
-          <span class="field-hint">Runs a 2nd autonomous critic pass to polish narration & pacing</span>
+        <div class="form-group checkbox-group">
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-quality-pass" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="toggle-label-wrap">
+            <span class="toggle-title">Autonomous Quality Critic</span>
+            <span class="field-hint">Performs a 2nd agentic pass to balance narration cadence and visual variety</span>
+          </div>
         </div>
       </div>
 
       <div class="drawer-footer">
-        <button id="save-settings-btn" class="btn-primary w-full">Save & Apply</button>
+        <button id="save-settings-btn" class="btn-primary w-full">Save & Apply Preferences</button>
       </div>
     </div>
   </aside>
 
-  <!-- Toast notification -->
+  <!-- Toast Notification -->
   <div id="toast" class="toast" hidden></div>
 
+  <!-- Studio Footer -->
   <footer class="footer">
-    <p>SnapVid • Pure Python Renderer • Zero Cloud Runtime Dependencies • Qualcomm AI Hub Verified</p>
+    <div class="footer-inner">
+      <p>SnapVid Studio • Pure Python Frame Renderer • Zero Cloud Runtime Dependencies • Qualcomm AI Hub Verified</p>
+    </div>
   </footer>
 
   <script src="app.js"></script>
