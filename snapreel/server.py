@@ -122,7 +122,7 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
     if timeout_val:
         timeout_sec = int(timeout_val)
     else:
-        timeout_sec = 300 if any(x in user_model.lower() for x in ["hf.co/", "fable", "qwen3.5", "opus", "31b", "70b"]) else int(os.environ.get("LLM_TIMEOUT", 120))
+        timeout_sec = max(360, int(os.environ.get("LLM_TIMEOUT", 360)))
 
     llm_config = {
         "base_url": user_base_url,

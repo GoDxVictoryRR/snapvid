@@ -470,3 +470,47 @@ Evaluating scene durations...
     script3 = validate_script(llm_output_think)
     assert script3.title == "Think Tag Test"
 
+
+def test_17_thinking_process_with_embedded_braces_and_unclosed_fences():
+    """Case 17: Thinking text containing non-JSON braces and unclosed code fence is correctly parsed."""
+    # Text with non-JSON braces in notes, followed by an unclosed code block (truncated due to token limit)
+    truncated_llm_output = """Here's a thinking process that leads to the suggested script:
+1. Understand the goal:
+   - Topic: Explain Transformer architecture, attention heads, and backpropagation simply.
+   - We might consider components like {attention_heads, feed_forward, residual}.
+   - Math notes: {Q, K, V} = softmax(QK^T / sqrt(d_k)) * V.
+2. Outline scenes:
+   - Scene 1: {heading: "Transformers"}
+3. Draft the JSON:
+```json
+{
+  "title": "Transformer Architecture Explained",
+  "total_duration": 6.0,
+  "scenes": [
+    {
+      "id": "s1",
+      "template": "title",
+      "duration": 3.0,
+      "narration": "Welcome to Transformers.",
+      "data": {"heading": "Transformers", "subheading": null}
+    },
+    {
+      "id": "s2",
+      "template": "kinetic",
+      "duration": 3.0,
+      "narration": "Self-attention processes tokens in parallel.",
+      "data": {"lines": ["Self-Attention", "Parallel Compute"]}
+    }
+  ]
+}
+"""
+    script = validate_script(truncated_llm_output)
+    assert script.title == "Transformer Architecture Explained"
+    assert len(script.scenes) == 2
+
+    # Single-quoted keys and values
+    single_quote_json = """{'title': 'Single Quote Test', 'total_duration': 3.0, 'scenes': [{'id': 's1', 'template': 'title', 'duration': 3.0, 'narration': 'Hi', 'data': {'heading': 'Hello', 'subheading': None}}]}"""
+    script_sq = validate_script(single_quote_json)
+    assert script_sq.title == "Single Quote Test"
+
+

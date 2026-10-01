@@ -14,6 +14,8 @@ services:
         value: meta/llama-3.1-8b-instruct
       - key: LLM_API_KEY
         sync: false  # Sensitive: enter your NVIDIA NIM API key securely in the Render dashboard
+      - key: LLM_TIMEOUT
+        value: "360"
       - key: RATE_LIMIT_PER_HOUR
         value: "10"  # Max videos per client IP per hour
       - key: MAX_CONCURRENT_JOBS

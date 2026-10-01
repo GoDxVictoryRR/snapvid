@@ -216,7 +216,7 @@ def llm_complete(
         # Explicit max_tokens prevents gateway buffer errors; 8192 provides ample space for 90s-180s scripts
         body["max_tokens"] = int(os.environ.get("LLM_MAX_TOKENS", 8192))
 
-    timeout_sec = timeout if timeout is not None else int(os.environ.get("LLM_TIMEOUT", 300))
+    timeout_sec = timeout if timeout is not None else int(os.environ.get("LLM_TIMEOUT", 360))
 
     # Pre-flight: verify model is available locally (fast, avoids 60s+ auto-pull hangs)
     _assert_model_available(resolved_base_url, resolved_model, headers)
@@ -250,6 +250,8 @@ def llm_complete(
             # Handle reasoning models (e.g. Qwen3.5, DeepSeek R1) that place generation in reasoning
             if not content and "reasoning" in msg:
                 content = msg.get("reasoning")
+            if not content and "reasoning_content" in msg:
+                content = msg.get("reasoning_content")
             if content is None:
                 content = ""
             # Strip <think>...</think> tags if returned by reasoning models

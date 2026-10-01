@@ -378,24 +378,45 @@ def _extract_json_content(text: str) -> str:
     # 1. Strip thinking tags <think>...</think> if present
     text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
 
-    # 2. Look for markdown code fence containing JSON with "scenes" or "title"
+    # 2. Check for fenced code blocks (closed or unclosed)
     fences = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     for fence in reversed(fences):
         f = fence.strip()
-        if "{" in f and "}" in f and ("scenes" in f or "title" in f):
+        if "{" in f and "scenes" in f:
             first = f.find("{")
             last = f.rfind("}")
             if first != -1 and last > first:
                 return f[first:last + 1]
+            elif first != -1:
+                return f[first:]
 
-    # 3. Look for the outermost JSON object if there is conversational preamble (e.g. "Here's a thinking process...")
+    # 2b. Unclosed code fence (e.g. ```json\n{ ... without closing ``` due to token limit)
+    unclosed_fence = re.search(r"```(?:json)?\s*(\{[\s\S]*)$", text, re.IGNORECASE)
+    if unclosed_fence and "scenes" in unclosed_fence.group(1):
+        block = unclosed_fence.group(1).strip()
+        last = block.rfind("}")
+        return block[:last + 1] if last != -1 else block
+
+    # 3. Locate the JSON object containing "scenes" and "title"
+    scenes_idx = text.rfind('"scenes"')
+    if scenes_idx != -1:
+        prefix = text[:scenes_idx]
+        root_match = re.search(r'\{\s*(?:\n\s*)?"(?:title|target_duration|scenes|aspect_ratio)"', prefix)
+        if root_match:
+            start = root_match.start()
+            candidate = text[start:]
+            last = candidate.rfind("}")
+            if last != -1:
+                return candidate[:last + 1]
+            return candidate
+
+    # 4. Outermost brace fallback
     first_brace = text.find("{")
     if first_brace != -1:
         last_brace = text.rfind("}")
         if last_brace > first_brace:
             return text[first_brace:last_brace + 1]
         else:
-            # Truncated JSON starting at first_brace
             return text[first_brace:]
 
     return text
@@ -407,6 +428,7 @@ def _repair_json(text: str) -> str:
     Handles:
     - Thinking processes, chain-of-thought, or conversational preambles
     - Markdown code fences (even if preceded by conversational text)
+    - Single quotes used in place of double quotes for keys or string values
     - Trailing commas before } or ] (e.g. ``{"a": 1,}``)
     - Missing comma between adjacent closing/opening braces (e.g. ``} {``)
     - Smart/curly quotes replaced with straight quotes
@@ -427,6 +449,17 @@ def _repair_json(text: str) -> str:
     # 2. Normalise smart/curly quotes -> straight quotes
     for bad, good in (("\u2018", "'"), ("\u2019", "'"), ("\u201c", '"'), ("\u201d", '"')):
         text = text.replace(bad, good)
+
+    # 2b. Convert single-quoted keys and string values to valid JSON double quotes
+    if "'" in text:
+        text = re.sub(r"(?<=[{\s,])'([a-zA-Z0-9_]+)'\s*:", r'"\1":', text)
+        text = re.sub(r":\s*'([^']*)'", r': "\1"', text)
+        text = re.sub(r"(?<=[\[\s,])'([^']*)'(?=\s*[,\]])", r'"\1"', text)
+
+    # 2c. Convert Python literals (None, True, False) to JSON literals (null, true, false)
+    text = re.sub(r"\bNone\b", "null", text)
+    text = re.sub(r"\bTrue\b", "true", text)
+    text = re.sub(r"\bFalse\b", "false", text)
 
     # 3. Remove trailing commas before } or ]
     text = re.sub(r",\s*([}\]])", r"\1", text)
