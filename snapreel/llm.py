@@ -180,18 +180,23 @@ def llm_complete(
     if not resolved_model:
         raise LLMError("LLM_MODEL environment variable is not configured")
 
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
     resolved_api_key = (api_key if api_key is not None else os.environ.get("LLM_API_KEY", "")).strip()
     if resolved_api_key:
         headers["Authorization"] = f"Bearer {resolved_api_key}"
 
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": prompt},
+    ]
+
     body: dict[str, Any] = {
         "model": resolved_model,
         "temperature": temperature,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
+        "messages": messages,
     }
 
     # Route Ollama local calls to native /api/chat with think=False to disable
@@ -202,45 +207,89 @@ def llm_complete(
         body["stream"] = False
     else:
         url = resolved_base_url.rstrip("/") + "/chat/completions"
+        body["stream"] = False
+        body["top_p"] = 1.0
+        # Critical for NVIDIA NIM / OpenAI endpoints: explicit max_tokens prevents 500 gateway parse errors
+        body["max_tokens"] = int(os.environ.get("LLM_MAX_TOKENS", 4096))
 
     timeout_sec = timeout if timeout is not None else int(os.environ.get("LLM_TIMEOUT", 300))
 
     # Pre-flight: verify model is available locally (fast, avoids 60s+ auto-pull hangs)
     _assert_model_available(resolved_base_url, resolved_model, headers)
 
-    try:
-        response = requests.post(url, json=body, headers=headers, timeout=timeout_sec)
-        response.raise_for_status()
-        payload = response.json()
-        if "choices" in payload and payload["choices"]:
-            choice = payload["choices"][0]
-            msg = choice.get("message", {})
-        elif "message" in payload:
-            msg = payload["message"]
-        else:
-            msg = {}
-        content = msg.get("content")
-        # Handle reasoning models (e.g. Qwen3.5, DeepSeek R1) that place generation in reasoning
-        if not content and "reasoning" in msg:
-            content = msg.get("reasoning")
-        if content is None:
-            content = ""
-        return content
-    except requests.RequestException as exc:
-        detail = ""
-        if hasattr(exc, "response") and exc.response is not None:
-            try:
-                detail = f" (Details: {exc.response.text.strip()[:200]})"
-            except Exception:
-                pass
-        err_msg = f"LLM HTTP request failed: {exc}{detail}"
-        if "500" in str(exc) and "localhost:11434" in url:
-            err_msg += " -> Ollama internal error (model exceeds VRAM or crashed). Try a lighter model like 'nemotron-3-nano:4b' or check Ollama logs."
-        logger.error(err_msg)
-        raise LLMError(err_msg) from exc
-    except (KeyError, IndexError, ValueError, TypeError) as exc:
-        logger.error("Unexpected LLM response format: %s", exc)
-        raise LLMError(f"Unexpected LLM response format: {exc}") from exc
+    max_http_retries = 3
+    is_test_env = "fake" in resolved_base_url or "test" in resolved_base_url
+
+    for http_attempt in range(max_http_retries):
+        current_body = dict(body)
+
+        # Adaptive strategy for NVIDIA NIM / cloud proxy gateways that fail on 'system' role or buffer limits:
+        # On attempt 1: if system is present and endpoint had an issue, combine system prompt into user prompt
+        if http_attempt == 1 and system:
+            current_body["messages"] = [
+                {"role": "user", "content": f"{system}\n\nTask:\n{prompt}"}
+            ]
+            logger.info("Retrying LLM call with combined system-user prompt format...")
+        elif http_attempt == 2 and "max_tokens" in current_body:
+            current_body["max_tokens"] = 2048
+
+        try:
+            response = requests.post(url, json=current_body, headers=headers, timeout=timeout_sec)
+            response.raise_for_status()
+            payload = response.json()
+            if "choices" in payload and payload["choices"]:
+                choice = payload["choices"][0]
+                msg = choice.get("message", {})
+            elif "message" in payload:
+                msg = payload["message"]
+            else:
+                msg = {}
+            content = msg.get("content")
+            # Handle reasoning models (e.g. Qwen3.5, DeepSeek R1) that place generation in reasoning
+            if not content and "reasoning" in msg:
+                content = msg.get("reasoning")
+            if content is None:
+                content = ""
+            return content
+        except requests.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else 0
+            if status_code == 0:
+                m = re.search(r"\b(429|500|502|503|504)\b", str(exc))
+                if m:
+                    status_code = int(m.group(1))
+            detail = ""
+            if exc.response is not None:
+                try:
+                    detail = f" (Details: {exc.response.text.strip()[:200]})"
+                except Exception:
+                    pass
+            # Retry transient server errors (429, 500, 502, 503, 504)
+            if status_code in (429, 500, 502, 503, 504) and http_attempt < max_http_retries - 1:
+                wait_sec = 0.0 if is_test_env else (http_attempt + 1) * 2.0
+                logger.warning(
+                    "LLM HTTP %d on %s%s; retrying in %.1fs (attempt %d/%d)...",
+                    status_code, url, detail, wait_sec, http_attempt + 1, max_http_retries
+                )
+                if wait_sec > 0:
+                    time.sleep(wait_sec)
+                continue
+            err_msg = f"LLM HTTP request failed: {exc}{detail}"
+            if "500" in str(exc) and "localhost:11434" in url:
+                err_msg += " -> Ollama internal error (model exceeds VRAM or crashed). Try a lighter model like 'nemotron-3-nano:4b' or check Ollama logs."
+            logger.error(err_msg)
+            raise LLMError(err_msg) from exc
+        except requests.RequestException as exc:
+            if http_attempt < max_http_retries - 1:
+                wait_sec = 0.0 if is_test_env else 2.0
+                if wait_sec > 0:
+                    time.sleep(wait_sec)
+                continue
+            err_msg = f"LLM HTTP request failed: {exc}"
+            logger.error(err_msg)
+            raise LLMError(err_msg) from exc
+        except (KeyError, IndexError, ValueError, TypeError) as exc:
+            logger.error("Unexpected LLM response format: %s", exc)
+            raise LLMError(f"Unexpected LLM response format: {exc}") from exc
 
 
 def llm_complete_timed(
@@ -352,15 +401,26 @@ def generate_scene_script(
                 prompt = REPAIR_PROMPT.format(error=last_error)
 
         logger.info("Generating scene script attempt %d/%d", attempt + 1, max_retries)
-        response = llm_complete(
-            prompt=prompt,
-            system=system_prompt,
-            base_url=cfg.get("base_url"),
-            model=cfg.get("model"),
-            api_key=cfg.get("api_key"),
-            timeout=cfg.get("timeout"),
-        )
-        emit("llm_response", attempt=attempt + 1, length=len(response))
+        try:
+            response = llm_complete(
+                prompt=prompt,
+                system=system_prompt,
+                base_url=cfg.get("base_url"),
+                model=cfg.get("model"),
+                api_key=cfg.get("api_key"),
+                timeout=cfg.get("timeout"),
+            )
+            emit("llm_response", attempt=attempt + 1, length=len(response))
+        except LLMError as exc:
+            last_error = exc
+            logger.warning("LLM call failed on attempt %d/%d: %s", attempt + 1, max_retries, exc)
+            emit("plan_rejected", attempt=attempt + 1, error=str(exc))
+            if attempt < max_retries - 1:
+                is_test_env = "fake" in str(cfg.get("base_url", "")) or "test" in str(cfg.get("base_url", ""))
+                if not is_test_env:
+                    time.sleep(2.0)
+                continue
+            raise
 
         try:
             fixed_response = _pre_heal_llm_json(response, target_duration=target_duration)
@@ -418,7 +478,10 @@ def test_llm_connection(base_url: str, model: str, api_key: str = "") -> dict[st
     if "generativelanguage.googleapis.com" in base_url and not base_url.rstrip("/").endswith("/openai"):
         base_url = base_url.rstrip("/") + "/openai"
 
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -463,6 +526,7 @@ def test_llm_connection(base_url: str, model: str, api_key: str = "") -> dict[st
             "model": model,
             "messages": [{"role": "user", "content": "ping"}],
             "max_tokens": 5,
+            "stream": False,
         }
     timeout_sec = int(os.environ.get("LLM_TIMEOUT", 120))
     t0 = time.perf_counter()

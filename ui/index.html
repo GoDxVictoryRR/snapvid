@@ -595,7 +595,17 @@
 
         <div class="form-group">
           <label for="setting-model">Model Identifier</label>
-          <input type="text" id="setting-model" class="form-input" placeholder="qwen2.5:3b">
+          <input type="text" id="setting-model" class="form-input" placeholder="meta/llama-3.1-8b-instruct" list="model-suggestions">
+          <datalist id="model-suggestions">
+            <option value="meta/llama-3.1-8b-instruct">NVIDIA NIM: Llama 3.1 8B Instruct (Default)</option>
+            <option value="meta/llama-3.1-70b-instruct">NVIDIA NIM: Llama 3.1 70B Instruct</option>
+            <option value="nvidia/llama-3.1-nemotron-70b-instruct">NVIDIA NIM: Nemotron 70B</option>
+            <option value="gemini-1.5-flash">Google Gemini 1.5 Flash</option>
+            <option value="gpt-4o-mini">OpenAI GPT-4o Mini</option>
+            <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B</option>
+            <option value="granite4.2:3b">Ollama Granite 4.2 3B</option>
+            <option value="qwen2.5:3b">Ollama Qwen 2.5 3B</option>
+          </datalist>
         </div>
 
         <div class="form-group">

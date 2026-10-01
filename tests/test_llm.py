@@ -187,3 +187,35 @@ def test_gemini_url_normalization(mocker):
     assert res == "Normalized URL works"
     called_url = mock_post.call_args[0][0]
     assert called_url == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+
+def test_llm_complete_retry_on_500_success(mocker):
+    """llm_complete retries on transient 500 and succeeds on attempt 2."""
+    os.environ["LLM_BASE_URL"] = "http://fake/v1"
+    os.environ["LLM_MODEL"] = "meta/llama-3.1-8b-instruct"
+    mocker.patch("snapreel.llm._assert_model_available")
+
+    mock_fail = mocker.MagicMock()
+    mock_fail.status_code = 500
+    mock_fail.raise_for_status.side_effect = requests.HTTPError("500 Server Error: Internal Server Error")
+
+    mock_success = mocker.MagicMock()
+    mock_success.status_code = 200
+    mock_success.json.return_value = {
+        "choices": [{"message": {"content": "Recovered successfully"}}]
+    }
+
+    mock_post = mocker.patch("requests.post", side_effect=[mock_fail, mock_success])
+    result = llm_complete("Test prompt", system="System instruction")
+
+    assert result == "Recovered successfully"
+    assert mock_post.call_count == 2
+    # Verify attempt 2 used adaptive fallback (combined prompt)
+    call_kwargs_attempt_2 = mock_post.call_args_list[1][1]
+    assert call_kwargs_attempt_2["json"]["messages"] == [
+        {"role": "user", "content": "System instruction\n\nTask:\nTest prompt"}
+    ]
+    assert call_kwargs_attempt_2["headers"]["Accept"] == "application/json"
+    assert call_kwargs_attempt_2["json"]["stream"] is False
+    assert "max_tokens" in call_kwargs_attempt_2["json"]
+
