@@ -50,16 +50,20 @@ def _get_client_ip(handler: Any) -> str:
     return getattr(handler, "client_address", ["127.0.0.1"])[0]
 
 
-def _check_rate_limit(ip: str) -> tuple[bool, int]:
+def _check_rate_limit(ip: str, has_custom_key: bool = False) -> tuple[bool, int]:
     """Check if IP has exceeded allowed generations per hour.
 
     Returns (is_allowed, seconds_to_retry).
-    Configurable via RATE_LIMIT_PER_HOUR env var (default: 10, set 0 to disable).
+    Users supplying their own personal API key receive a generous quota (default: 50/hr).
+    Users using the server default key receive RATE_LIMIT_PER_HOUR (default: 10/hr).
     """
     try:
-        limit = int(os.environ.get("RATE_LIMIT_PER_HOUR", 10))
+        if has_custom_key:
+            limit = int(os.environ.get("RATE_LIMIT_CUSTOM_KEY_PER_HOUR", 50))
+        else:
+            limit = int(os.environ.get("RATE_LIMIT_PER_HOUR", 10))
     except ValueError:
-        limit = 10
+        limit = 50 if has_custom_key else 10
     if limit <= 0:
         return True, 0
 
@@ -106,25 +110,32 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
     settings = settings or {}
     _jobs[job_id] = {"state": "running", "progress": 5, "status": "Planning script with LLM..."}
 
-    env_keys = [("LLM_BASE_URL", "llm_base_url"), ("LLM_MODEL", "llm_model"), ("LLM_API_KEY", "llm_api_key"),
-                ("LLM_TIMEOUT", "llm_timeout"), ("TTS_ENGINE", "tts_engine"), ("TTS_VOICE", "tts_voice")]
-    for env_k, k in env_keys:
-        if k in settings:
-            v = str(settings[k] or "").strip()
-            if v and "..." not in v and v != "***":
-                os.environ[env_k] = v
-            elif env_k == "LLM_API_KEY" and v == "":
-                # Do NOT clear server environment key if client simply left it blank
-                pass
+    # Resolve per-request LLM config safely in RAM without mutating global os.environ
+    user_api_key = str(settings.get("llm_api_key") or "").strip()
+    if not user_api_key or "••••" in user_api_key or "..." in user_api_key or user_api_key == "***":
+        user_api_key = os.environ.get("LLM_API_KEY", "")
 
+    user_base_url = str(settings.get("llm_base_url") or "").strip() or os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
+    user_model = str(settings.get("llm_model") or "").strip() or os.environ.get("LLM_MODEL", "qwen2.5:3b")
 
-    if not settings.get("llm_timeout"):
-        model, cur = os.environ.get("LLM_MODEL", ""), int(os.environ.get("LLM_TIMEOUT", 300))
-        if any(x in model.lower() for x in ["hf.co/", "fable", "qwen3.5", "opus", "31b", "70b"]):
-            os.environ["LLM_TIMEOUT"] = str(max(cur, 300))
+    timeout_val = settings.get("llm_timeout")
+    if timeout_val:
+        timeout_sec = int(timeout_val)
+    else:
+        timeout_sec = 300 if any(x in user_model.lower() for x in ["hf.co/", "fable", "qwen3.5", "opus", "31b", "70b"]) else int(os.environ.get("LLM_TIMEOUT", 120))
 
-    quality_review, tts_engine, tts_voice = settings.get("quality_pass"), settings.get("tts_engine", "auto"), settings.get("tts_voice", "auto")
-    target_duration, aspect_ratio = int(settings.get("target_duration") or 60), str(settings.get("aspect_ratio") or "16:9")
+    llm_config = {
+        "base_url": user_base_url,
+        "model": user_model,
+        "api_key": user_api_key,
+        "timeout": timeout_sec,
+    }
+
+    quality_review = settings.get("quality_pass")
+    tts_engine = str(settings.get("tts_engine") or os.environ.get("TTS_ENGINE", "auto"))
+    tts_voice = str(settings.get("tts_voice") or os.environ.get("TTS_VOICE", "auto"))
+    target_duration = int(settings.get("target_duration") or 60)
+    aspect_ratio = str(settings.get("aspect_ratio") or "16:9")
 
     try:
         from snapreel.planner import generate
@@ -135,7 +146,14 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
             _record_event(job_id, ev)
 
         _record_event(job_id, {"type": "planning_start", "data": {"topic": topic}})
-        script = generate(topic, on_event=on_event, quality_review=quality_review, target_duration=target_duration, aspect_ratio=aspect_ratio)
+        script = generate(
+            topic,
+            on_event=on_event,
+            quality_review=quality_review,
+            target_duration=target_duration,
+            aspect_ratio=aspect_ratio,
+            llm_config=llm_config,
+        )
 
         _jobs[job_id].update({"progress": 25, "status": f"Script planned: {len(script.scenes)} scenes"})
         out_file = Path(out_path).resolve()
@@ -210,7 +228,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if self.path == "/generate":
             client_ip = _get_client_ip(self)
-            allowed, retry_after = _check_rate_limit(client_ip)
+            user_key = str(body.get("llm_api_key") or "").strip()
+            has_custom_key = bool(user_key and "••••" not in user_key and "..." not in user_key and user_key != "***")
+            allowed, retry_after = _check_rate_limit(client_ip, has_custom_key=has_custom_key)
             if not allowed:
                 self._json(429, {"error": f"Rate limit reached. Please wait {retry_after}s before creating another video."})
                 return

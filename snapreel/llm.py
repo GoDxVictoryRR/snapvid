@@ -143,13 +143,25 @@ Add more scenes. Each scene duration must be between 8.0 and 25.0 seconds (NEVER
 total_duration must equal {target}.0. Output corrected JSON only."""
 
 
-def llm_complete(prompt: str, system: str = "", temperature: float = 0.3) -> str:
+def llm_complete(
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.3,
+    base_url: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+    timeout: int | None = None,
+) -> str:
     """POST to {LLM_BASE_URL}/chat/completions. Returns content string.
 
     Args:
         prompt: User prompt content.
         system: Optional system instruction.
         temperature: Sampling temperature (default 0.3).
+        base_url: Optional override for LLM_BASE_URL.
+        model: Optional override for LLM_MODEL.
+        api_key: Optional override for LLM_API_KEY.
+        timeout: Optional override for LLM_TIMEOUT in seconds.
 
     Returns:
         Content string from LLM choices[0].message.content.
@@ -158,24 +170,23 @@ def llm_complete(prompt: str, system: str = "", temperature: float = 0.3) -> str
         LLMError: If LLM_BASE_URL/LLM_MODEL are missing, the HTTP request fails,
             or the response format is unexpected.
     """
-    base_url = os.environ.get("LLM_BASE_URL", "").strip()
-    if not base_url:
+    resolved_base_url = (base_url or os.environ.get("LLM_BASE_URL", "")).strip()
+    if not resolved_base_url:
         raise LLMError("LLM_BASE_URL environment variable is not configured")
-    if "generativelanguage.googleapis.com" in base_url and not base_url.rstrip("/").endswith("/openai"):
-        base_url = base_url.rstrip("/") + "/openai"
+    if "generativelanguage.googleapis.com" in resolved_base_url and not resolved_base_url.rstrip("/").endswith("/openai"):
+        resolved_base_url = resolved_base_url.rstrip("/") + "/openai"
 
-    model = os.environ.get("LLM_MODEL", "").strip()
-    if not model:
+    resolved_model = (model or os.environ.get("LLM_MODEL", "")).strip()
+    if not resolved_model:
         raise LLMError("LLM_MODEL environment variable is not configured")
 
-    url = base_url.rstrip("/") + "/chat/completions"
     headers = {"Content-Type": "application/json"}
-    api_key = os.environ.get("LLM_API_KEY", "").strip()
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    resolved_api_key = (api_key if api_key is not None else os.environ.get("LLM_API_KEY", "")).strip()
+    if resolved_api_key:
+        headers["Authorization"] = f"Bearer {resolved_api_key}"
 
     body: dict[str, Any] = {
-        "model": model,
+        "model": resolved_model,
         "temperature": temperature,
         "messages": [
             {"role": "system", "content": system},
@@ -185,17 +196,17 @@ def llm_complete(prompt: str, system: str = "", temperature: float = 0.3) -> str
 
     # Route Ollama local calls to native /api/chat with think=False to disable
     # expensive reasoning loops on local thinking models (Granite, Nemotron, Qwen, DeepSeek).
-    if ":11434" in base_url:
-        url = base_url.split("/v1")[0].rstrip("/") + "/api/chat"
+    if ":11434" in resolved_base_url:
+        url = resolved_base_url.split("/v1")[0].rstrip("/") + "/api/chat"
         body["think"] = False
         body["stream"] = False
     else:
-        url = base_url.rstrip("/") + "/chat/completions"
+        url = resolved_base_url.rstrip("/") + "/chat/completions"
 
-    timeout_sec = int(os.environ.get("LLM_TIMEOUT", 300))
+    timeout_sec = timeout if timeout is not None else int(os.environ.get("LLM_TIMEOUT", 300))
 
     # Pre-flight: verify model is available locally (fast, avoids 60s+ auto-pull hangs)
-    _assert_model_available(base_url, model, headers)
+    _assert_model_available(resolved_base_url, resolved_model, headers)
 
     try:
         response = requests.post(url, json=body, headers=headers, timeout=timeout_sec)
@@ -301,6 +312,7 @@ def generate_scene_script(
     max_retries: int = 3,
     on_event: Optional[Callable[[AgentEvent], None]] = None,
     target_duration: int = 60,
+    llm_config: Optional[dict[str, Any]] = None,
 ) -> SceneScript:
     """Generate and validate a SceneScript for a given topic with a self-healing repair loop."""
     def emit(type_: str, **data: Any) -> None:
@@ -312,6 +324,7 @@ def generate_scene_script(
     last_error: Optional[Exception] = None
     response = ""
     prompt = topic
+    cfg = llm_config or {}
 
     for attempt in range(max_retries):
         if attempt > 0:
@@ -339,7 +352,14 @@ def generate_scene_script(
                 prompt = REPAIR_PROMPT.format(error=last_error)
 
         logger.info("Generating scene script attempt %d/%d", attempt + 1, max_retries)
-        response = llm_complete(prompt=prompt, system=system_prompt)
+        response = llm_complete(
+            prompt=prompt,
+            system=system_prompt,
+            base_url=cfg.get("base_url"),
+            model=cfg.get("model"),
+            api_key=cfg.get("api_key"),
+            timeout=cfg.get("timeout"),
+        )
         emit("llm_response", attempt=attempt + 1, length=len(response))
 
         try:

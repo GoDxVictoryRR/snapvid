@@ -32,6 +32,7 @@ def quality_pass(
     on_event: Optional[Callable[[dict[str, Any]], None]] = None,
     enabled: Optional[bool] = None,
     prev_duration: Optional[float] = None,
+    llm_config: Optional[dict[str, Any]] = None,
 ) -> SceneScript:
     """Optional second LLM pass to improve scene quality.
 
@@ -40,6 +41,7 @@ def quality_pass(
         on_event: Optional callback for agent SSE activity events.
         enabled: Explicitly enable/disable; defaults to ENABLE_QUALITY_PASS env var (true).
         prev_duration: Latency of preceding LLM call in seconds (skipped if > 20s).
+        llm_config: Optional per-request LLM configuration.
 
     Returns:
         Improved SceneScript or original if critic fails or is skipped.
@@ -64,8 +66,15 @@ def quality_pass(
         return script
 
     emit("quality_start", scenes=len(script.scenes))
+    cfg = llm_config or {}
     try:
-        raw = llm_complete(CRITIC_PROMPT.format(script_json=script.model_dump_json()))
+        raw = llm_complete(
+            CRITIC_PROMPT.format(script_json=script.model_dump_json()),
+            base_url=cfg.get("base_url"),
+            model=cfg.get("model"),
+            api_key=cfg.get("api_key"),
+            timeout=cfg.get("timeout"),
+        )
         improved = validate_script(raw)
         emit("quality_accepted", scenes=len(improved.scenes))
         logger.info("Quality pass accepted improved script with %d scenes", len(improved.scenes))

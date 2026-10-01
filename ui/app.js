@@ -163,7 +163,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     settingBaseUrl.value = localStorage.getItem("sr_base_url") ?? defaultUrl;
     settingModel.value = localStorage.getItem("sr_model") ?? defaultModel;
-    settingApiKey.value = localStorage.getItem("sr_api_key") ?? (serverConfig?.llm_api_key || "");
+    settingApiKey.value = localStorage.getItem("sr_api_key") || "";
+    if (!settingApiKey.value && serverConfig?.has_api_key) {
+      settingApiKey.placeholder = "•••••••• (Server key active — or enter custom)";
+    } else {
+      settingApiKey.placeholder = "Leave blank for local backends";
+    }
 
     const ttsEngine = localStorage.getItem("sr_tts_engine") || serverConfig?.tts_engine || "auto";
     settingTtsEngine.value = ttsEngine;
@@ -185,6 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ttsVoice = settingTtsVoice.value;
     const qualityPass = settingQualityPass.checked;
 
+    // Secure Client-Side Storage: The key stays strictly in user's browser localStorage
     localStorage.setItem("sr_provider", provider);
     localStorage.setItem("sr_base_url", baseUrl);
     localStorage.setItem("sr_model", model);
@@ -193,6 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("sr_tts_voice", ttsVoice);
     localStorage.setItem("sr_quality_pass", qualityPass ? "true" : "false");
 
+    // Do NOT send user's personal API key to global /config endpoint to avoid multi-user leakage.
+    // The key is passed directly in /generate request headers/body strictly in memory.
     try {
       await fetch("/config", {
         method: "POST",
@@ -200,7 +208,6 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           llm_base_url: baseUrl,
           llm_model: model,
-          llm_api_key: apiKey,
           tts_engine: ttsEngine,
           tts_voice: ttsVoice,
         }),

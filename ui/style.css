@@ -1163,6 +1163,26 @@ video {
   line-height: 1.4;
 }
 
+.privacy-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.09);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  font-size: 0.74rem;
+  color: #6EE7B7;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.privacy-badge svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #10B981;
+}
+
 .drawer-divider {
   border: none;
   border-top: 1px solid var(--border-subtle);

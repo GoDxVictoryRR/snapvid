@@ -43,6 +43,7 @@ def generate(
     quality_review: Optional[bool] = None,
     target_duration: int = 60,
     aspect_ratio: str = "16:9",
+    llm_config: Optional[dict[str, Any]] = None,
 ) -> SceneScript:
     """Generate a validated SceneScript for the specified topic."""
     prompt = build_prompt(topic, target_duration=target_duration, aspect_ratio=aspect_ratio)
@@ -54,6 +55,7 @@ def generate(
         max_retries=max_retries,
         on_event=on_event,
         target_duration=target_duration,
+        llm_config=llm_config,
     )
     duration = time.perf_counter() - t0
 
@@ -66,6 +68,7 @@ def generate(
         on_event=on_event,
         enabled=quality_review,
         prev_duration=duration,
+        llm_config=llm_config,
     )
     script.target_duration = target_duration
     script.aspect_ratio = aspect_ratio
