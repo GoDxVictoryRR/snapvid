@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.0">
+  <link rel="stylesheet" href="style.css?v=7.0">
 </head>
 <body class="studio-body">
   <!-- Dynamic Ambient Lighting Grid -->
@@ -18,7 +18,49 @@
     <div class="studio-grid-overlay"></div>
   </div>
 
-  <!-- Studio Master Topbar -->
+  <!-- Top Center Brand Heading (Separated Top Tier: Heading First) -->
+  <div class="top-center-heading-bar">
+    <div class="brand top-brand-center" aria-label="SnapVid Studio">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+          <defs>
+            <linearGradient id="snapvid-film-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF2A85" />
+              <stop offset="48%" stop-color="#9D4EDD" />
+              <stop offset="100%" stop-color="#00D2FF" />
+            </linearGradient>
+            <linearGradient id="snapvid-glow-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#14141E" />
+              <stop offset="100%" stop-color="#0A0B10" />
+            </linearGradient>
+          </defs>
+          <!-- Squircle Base -->
+          <rect x="1" y="1" width="44" height="44" rx="12" fill="url(#snapvid-glow-bg)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" />
+          <!-- Film Frame with Glowing Gradient -->
+          <rect x="8" y="8" width="30" height="30" rx="7" stroke="url(#snapvid-film-grad)" stroke-width="2.5" />
+          <!-- Top Film Sprocket Teeth -->
+          <line x1="14" y1="8" x2="14" y2="12" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="23" y1="8" x2="23" y2="12" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="32" y1="8" x2="32" y2="12" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <!-- Bottom Film Sprocket Teeth -->
+          <line x1="14" y1="34" x2="14" y2="38" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="23" y1="34" x2="23" y2="38" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="32" y1="34" x2="32" y2="38" stroke="#0A0B10" stroke-width="2.5" stroke-linecap="round" />
+          <!-- Center Play Polygon -->
+          <polygon points="20,17 30,23 20,29" fill="#FFFFFF" />
+        </svg>
+      </div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <h1 class="brand-title"><span class="brand-title-snap">Snap</span><span class="brand-title-vid">Vid</span></h1>
+          <span class="pro-tag">STUDIO</span>
+        </div>
+        <span class="brand-sub">AGENTIC EXPLAINER ENGINE</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Studio Master Topbar (Navbar of Other Components) -->
   <header class="app-header">
     <div class="header-inner">
       <!-- Left: Active Pipeline Pill -->
@@ -29,31 +71,6 @@
           <span class="pipeline-step">10 Motion Templates</span>
           <span class="pipeline-divider">•</span>
           <span class="pipeline-step">Multi-Aspect Canvas</span>
-        </div>
-      </div>
-
-      <!-- Center: Brand Logo & Title Front and Center -->
-      <div class="brand header-brand-center">
-        <div class="brand-logo" aria-hidden="true">
-          <svg width="30" height="30" viewBox="0 0 28 28" fill="none">
-            <defs>
-              <linearGradient id="snapvid-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FF385C" />
-                <stop offset="50%" stop-color="#8B5CF6" />
-                <stop offset="100%" stop-color="#FFA033" />
-              </linearGradient>
-            </defs>
-            <rect x="2" y="2" width="24" height="24" rx="7" fill="url(#snapvid-grad)" />
-            <path d="M6 8h16M6 20h16M10 2v6M18 2v6M10 20v6M18 20v6" stroke="#060913" stroke-width="2" stroke-linecap="round" />
-            <polygon points="12,11 18,14 12,17" fill="#FFFFFF" />
-          </svg>
-        </div>
-        <div class="brand-info">
-          <div class="brand-title-row">
-            <h1 class="brand-title">SnapVid</h1>
-            <span class="pro-tag">STUDIO</span>
-          </div>
-          <span class="brand-sub">Agentic Explainer Engine</span>
         </div>
       </div>
 
