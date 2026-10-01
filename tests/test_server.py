@@ -159,3 +159,37 @@ def test_handler_post_config_updates_env_and_clears_key(mocker):
     assert os.environ["LLM_BASE_URL"] == "https://integrate.api.nvidia.com/v1"
     assert os.environ["LLM_MODEL"] == "meta/llama-3.1-8b-instruct"
     assert "LLM_API_KEY" not in os.environ
+
+
+def test_handler_post_generate_rate_limit(mocker):
+    """POST /generate responds with HTTP 429 when rate limit is exceeded."""
+    import os
+    os.environ["RATE_LIMIT_PER_HOUR"] = "2"
+    from snapreel.server import _ip_request_timestamps
+    _ip_request_timestamps.clear()
+
+    # Request 1: OK
+    h1, r1, _ = _setup_handler(path="/generate", body=b'{"topic": "Test 1"}')
+    h1.client_address = ("192.168.1.100", 12345)
+    mocker.patch("threading.Thread.start")
+    h1.do_POST()
+    assert r1 == [202]
+
+    # Request 2: OK
+    h2, r2, _ = _setup_handler(path="/generate", body=b'{"topic": "Test 2"}')
+    h2.client_address = ("192.168.1.100", 12345)
+    h2.do_POST()
+    assert r2 == [202]
+
+    # Request 3: Blocked (429)
+    h3, r3, _ = _setup_handler(path="/generate", body=b'{"topic": "Test 3"}')
+    h3.client_address = ("192.168.1.100", 12345)
+    h3.do_POST()
+    assert r3 == [429]
+    payload = json.loads(_get_wfile_bytes(h3).decode())
+    assert "Rate limit" in payload.get("error", "")
+
+    # Cleanup
+    os.environ["RATE_LIMIT_PER_HOUR"] = "10"
+    _ip_request_timestamps.clear()
+

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: snapvid
+    runtime: docker
+    dockerfilePath: Dockerfile
+    plan: starter
+    healthCheckPath: /config
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: LLM_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: LLM_MODEL
+        value: meta/llama-3.1-8b-instruct
+      - key: LLM_API_KEY
+        sync: false  # Sensitive: enter your NVIDIA NIM API key securely in the Render dashboard
+      - key: RATE_LIMIT_PER_HOUR
+        value: "10"  # Max videos per client IP per hour
+      - key: MAX_CONCURRENT_JOBS
+        value: "2"   # Max concurrent rendering jobs
+      - key: TTS_ENGINE
+        value: edge  # Neural cloud voice on Linux container

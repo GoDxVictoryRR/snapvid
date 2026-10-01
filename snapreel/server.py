@@ -28,7 +28,7 @@ from snapreel.npu import get_latest_benchmark
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-PORT = 8000
+PORT = int(os.environ.get("PORT", 8000))
 ROOT_DIR = Path(__file__).resolve().parent.parent
 UI_DIR, OUTPUT_DIR = ROOT_DIR / "ui", ROOT_DIR / "output"
 
@@ -36,6 +36,47 @@ _jobs: dict[str, dict[str, Any]] = {}
 _job_events: dict[str, list[dict[str, Any]]] = {}
 _job_subscribers: dict[str, list[queue.Queue[dict[str, Any]]]] = {}
 _sub_lock = threading.Lock()
+
+_rate_limit_lock = threading.Lock()
+_ip_request_timestamps: dict[str, list[float]] = {}
+
+
+def _get_client_ip(handler: Any) -> str:
+    """Extract client IP respecting reverse-proxy headers like X-Forwarded-For."""
+    if hasattr(handler, "headers") and handler.headers:
+        xff = handler.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()
+    return getattr(handler, "client_address", ["127.0.0.1"])[0]
+
+
+def _check_rate_limit(ip: str) -> tuple[bool, int]:
+    """Check if IP has exceeded allowed generations per hour.
+
+    Returns (is_allowed, seconds_to_retry).
+    Configurable via RATE_LIMIT_PER_HOUR env var (default: 10, set 0 to disable).
+    """
+    try:
+        limit = int(os.environ.get("RATE_LIMIT_PER_HOUR", 10))
+    except ValueError:
+        limit = 10
+    if limit <= 0:
+        return True, 0
+
+    now = time.time()
+    window = 3600.0
+    with _rate_limit_lock:
+        timestamps = [t for t in _ip_request_timestamps.get(ip, []) if now - t < window]
+        if len(timestamps) >= limit:
+            oldest = timestamps[0]
+            retry_after = max(1, int(window - (now - oldest)))
+            _ip_request_timestamps[ip] = timestamps
+            return False, retry_after
+        timestamps.append(now)
+        _ip_request_timestamps[ip] = timestamps
+        return True, 0
+
+
 def _record_event(job_id: str, event: dict[str, Any]) -> None:
     with _sub_lock:
         _job_events.setdefault(job_id, []).append(event)
@@ -49,10 +90,12 @@ def _subscribe_job_events(job_id: str) -> queue.Queue[dict[str, Any]]:
         _job_subscribers.setdefault(job_id, []).append(q)
     return q
 
+
 def _unsubscribe_job_events(job_id: str, q: queue.Queue[dict[str, Any]]) -> None:
     with _sub_lock:
         if job_id in _job_subscribers and q in _job_subscribers[job_id]:
             _job_subscribers[job_id].remove(q)
+
 
 def _get_job_events(job_id: str) -> list[dict[str, Any]]:
     with _sub_lock:
@@ -68,10 +111,12 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
     for env_k, k in env_keys:
         if k in settings:
             v = str(settings[k] or "").strip()
-            if v:
+            if v and "..." not in v and v != "***":
                 os.environ[env_k] = v
-            elif env_k == "LLM_API_KEY":
-                os.environ.pop(env_k, None)
+            elif env_k == "LLM_API_KEY" and v == "":
+                # Do NOT clear server environment key if client simply left it blank
+                pass
+
 
     if not settings.get("llm_timeout"):
         model, cur = os.environ.get("LLM_MODEL", ""), int(os.environ.get("LLM_TIMEOUT", 300))
@@ -164,6 +209,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = {}
 
         if self.path == "/generate":
+            client_ip = _get_client_ip(self)
+            allowed, retry_after = _check_rate_limit(client_ip)
+            if not allowed:
+                self._json(429, {"error": f"Rate limit reached. Please wait {retry_after}s before creating another video."})
+                return
+
+            active_cnt = sum(1 for j in _jobs.values() if j.get("state") == "running")
+            max_conc = int(os.environ.get("MAX_CONCURRENT_JOBS", 2))
+            if active_cnt >= max_conc:
+                self._json(429, {"error": "Server is currently rendering another video. Please wait a moment and try again."})
+                return
+
             topic = body.get("topic", "").strip()
             if not topic:
                 self._json(400, {"error": "topic is required"})
@@ -178,13 +235,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             for ek, k in [("LLM_BASE_URL", "llm_base_url"), ("LLM_MODEL", "llm_model"), ("LLM_API_KEY", "llm_api_key"), ("TTS_ENGINE", "tts_engine"), ("TTS_VOICE", "tts_voice")]:
                 if k in body:
                     v = str(body[k] or "").strip()
-                    if v:
+                    if v and "••••" not in v and "..." not in v:
                         os.environ[ek] = v
-                    elif ek == "LLM_API_KEY":
+                    elif ek == "LLM_API_KEY" and v == "":
                         os.environ.pop(ek, None)
             self._json(200, {"ok": True})
         elif self.path == "/test_llm":
-            res = test_llm_connection(body.get("llm_base_url", ""), body.get("llm_model", ""), body.get("llm_api_key", ""))
+            key = body.get("llm_api_key", "").strip()
+            if not key or "••••" in key or "..." in key or key == "***":
+                key = os.environ.get("LLM_API_KEY", "")
+            res = test_llm_connection(body.get("llm_base_url", ""), body.get("llm_model", ""), key)
             self._json(200, res)
         elif self.path.startswith("/status/"):
             self._json(200, _jobs.get(self.path.split("/")[-1], {"state": "unknown"}))
@@ -197,11 +257,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path.startswith("/events/"):
             self._stream_events(path.split("/events/")[-1])
         elif path == "/config":
+            raw_key = os.environ.get("LLM_API_KEY", "")
+            masked_key = (raw_key[:4] + "••••" + raw_key[-4:]) if len(raw_key) > 8 else ("••••••••" if raw_key else "")
             self._json(200, {
                 "llm_base_url": os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1"),
-                "llm_model": os.environ.get("LLM_MODEL", "granite4.2:3b"),
-                "llm_api_key": os.environ.get("LLM_API_KEY", ""),
-                "has_api_key": bool(os.environ.get("LLM_API_KEY")),
+                "llm_model": os.environ.get("LLM_MODEL", "qwen2.5:3b"),
+                "llm_api_key": masked_key,
+                "has_api_key": bool(raw_key),
                 "tts_engine": os.environ.get("TTS_ENGINE", "auto"),
                 "tts_voice": os.environ.get("TTS_VOICE", "auto"),
             })
