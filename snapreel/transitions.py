@@ -24,57 +24,55 @@ def blend_frames(
 ) -> Image.Image:
     """Composite frame_a and frame_b at given progress for the named transition.
 
-    Returns RGB PIL Image at the same size.
+    Returns RGB PIL Image at the same size with zero float32 memory overhead.
     """
-    a_img = frame_a.convert("RGB")
-    b_img = frame_b.convert("RGB")
-    a = np.array(a_img, dtype=np.float32)
-    b = np.array(b_img, dtype=np.float32)
-    H, W = a.shape[:2]
-    t = float(np.clip(progress, 0.0, 1.0))
+    a_img = frame_a if frame_a.mode == "RGB" else frame_a.convert("RGB")
+    b_img = frame_b if frame_b.mode == "RGB" else frame_b.convert("RGB")
+    W, H = a_img.size
+    t = max(0.0, min(1.0, float(progress)))
 
     if mode in ("fade", "cross_dissolve"):
-        out = a * (1.0 - t) + b * t
+        return Image.blend(a_img, b_img, t)
 
     elif mode == "slide_left":
         # B slides in from right, A slides out to left
         split = int(W * t)
-        out = a.copy()
-        if split > 0:
-            out[:, :W - split, :] = a[:, split:, :]
-            out[:, W - split:, :] = b[:, :split, :]
+        out = Image.new("RGB", (W, H))
+        if split <= 0:
+            return a_img.copy()
+        elif split >= W:
+            return b_img.copy()
+        out.paste(a_img.crop((split, 0, W, H)), (0, 0))
+        out.paste(b_img.crop((0, 0, split, H)), (W - split, 0))
+        return out
 
     elif mode == "slide_right":
         # B slides in from left, A slides out to right
         split = int(W * t)
-        out = a.copy()
-        if split > 0:
-            out[:, split:, :] = a[:, :W - split, :]
-            out[:, :split, :] = b[:, W - split:, :]
+        out = Image.new("RGB", (W, H))
+        if split <= 0:
+            return a_img.copy()
+        elif split >= W:
+            return b_img.copy()
+        out.paste(b_img.crop((W - split, 0, W, H)), (0, 0))
+        out.paste(a_img.crop((0, 0, W - split, H)), (split, 0))
+        return out
 
     elif mode == "zoom_in":
         # B scales up from center while A fades out
         scale = 0.85 + 0.15 * t
         new_w = max(1, int(W * scale))
         new_h = max(1, int(H * scale))
-        b_scaled = np.array(
-            Image.fromarray(b.astype(np.uint8)).resize((new_w, new_h), Image.Resampling.BILINEAR),
-            dtype=np.float32,
-        )
+        b_scaled = b_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
         x0 = max(0, (new_w - W) // 2)
         y0 = max(0, (new_h - H) // 2)
-        b_cropped = b_scaled[y0:y0 + H, x0:x0 + W, :]
-        if b_cropped.shape[:2] != (H, W):
-            b_cropped = np.array(
-                Image.fromarray(b_scaled.astype(np.uint8)).resize((W, H)),
-                dtype=np.float32,
-            )
-        out = a * (1.0 - t) + b_cropped * t
+        b_cropped = b_scaled.crop((x0, y0, x0 + W, y0 + H))
+        if b_cropped.size != (W, H):
+            b_cropped = b_cropped.resize((W, H))
+        return Image.blend(a_img, b_cropped, t)
 
     else:  # "none"
-        out = b if t >= 0.5 else a
-
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+        return b_img if t >= 0.5 else a_img
 
 
 def generate_transition(

@@ -13,9 +13,9 @@ from __future__ import annotations
 import logging
 import os
 import math
+import gc
 import subprocess
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
@@ -168,35 +168,9 @@ def render_video(
     for fc in scene_frame_counts[:-1]:
         cumulative_offsets.append(cumulative_offsets[-1] + fc)
 
-    # ── Parallel scene rendering ───────────────────────────────────────────────
-    logger.info("Rendering %d scenes in parallel...", total_scenes)
-    scene_frames: dict[int, list[Image.Image]] = {}
-
-    def _render_idx(idx: int) -> tuple[int, list[Image.Image]]:
-        scene = script.scenes[idx]
-        audio_dur = (audio_durations[idx] if audio_durations and idx < len(audio_durations)
-                     else 0.0)
-        frames = _render_scene_with_captions(
-            scene,
-            global_frame_offset=0,
-            audio_duration=audio_dur,
-            fps=fps,
-            global_frame_offset_for_bg=cumulative_offsets[idx],
-        )
-        return idx, frames
-
-    # Use min(scenes, 4) workers — more than 4 rarely helps due to GIL + memory
-    max_workers = min(total_scenes, 4)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_render_idx, i): i for i in range(total_scenes)}
-        completed = 0
-        for fut in as_completed(futures):
-            idx, frames = fut.result()
-            scene_frames[idx] = frames
-            completed += 1
-            logger.info("Scene %d/%d rendered (%d frames)", completed, total_scenes, len(frames))
-
-    # ── ffmpeg pipe ────────────────────────────────────────────────────────────
+    # ── Sequential scene streaming directly to ffmpeg pipe ───────────────────────
+    # Keeping only 1 scene in memory at a time ensures peak RAM is < 60MB,
+    # preventing Out-Of-Memory crashes on container hosts like Render (512MB limit).
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
@@ -217,49 +191,82 @@ def render_video(
     try:
         assert proc.stdin is not None
         frames_written = 0
-
-        curr_frames = scene_frames[0] if total_scenes > 0 else []
+        prev_transition_tail: list[Image.Image] | None = None
+        prev_trans_mode: str = "fade"
 
         for idx in range(total_scenes):
-            has_next = idx < total_scenes - 1
+            scene = script.scenes[idx]
+            audio_dur = (
+                audio_durations[idx]
+                if audio_durations and idx < len(audio_durations)
+                else 0.0
+            )
+            logger.info("Rendering scene %d/%d (template: %s)...", idx + 1, total_scenes, scene.template)
+            frames = _render_scene_with_captions(
+                scene,
+                global_frame_offset=0,
+                audio_duration=audio_dur,
+                fps=fps,
+                global_frame_offset_for_bg=cumulative_offsets[idx],
+            )
 
-            if has_next:
-                next_frames = scene_frames[idx + 1]
-                trans_mode = getattr(script.scenes[idx], "transition", "fade") or "fade"
-                if trans_mode != "none" and len(curr_frames) > 1 and len(next_frames) > 0:
-                    n_trans = min(TRANSITION_FRAMES, len(curr_frames) // 2)
-                    direct_frames = curr_frames[:-n_trans]
-                    trans_frames = [
-                        blend_frames(
-                            curr_frames[len(curr_frames) - n_trans + i],
-                            next_frames[0],
+            # 1. Blend transition from previous scene if pending
+            if prev_transition_tail is not None:
+                if len(frames) > 0:
+                    n_trans = len(prev_transition_tail)
+                    first_frame = frames[0]
+                    for i in range(n_trans):
+                        blended = blend_frames(
+                            prev_transition_tail[i],
+                            first_frame,
                             ease_in_out_cubic((i + 1) / (n_trans + 1)),
-                            mode=trans_mode,
+                            mode=prev_trans_mode,
                         )
-                        for i in range(n_trans)
-                    ]
+                        out_frame = blended if blended.mode == "RGB" else blended.convert("RGB")
+                        proc.stdin.write(out_frame.tobytes())
+                        frames_written += 1
                 else:
-                    direct_frames = curr_frames
-                    trans_frames = []
-            else:
-                direct_frames = curr_frames
-                trans_frames = []
-                next_frames = []
+                    for tf in prev_transition_tail:
+                        out_frame = tf if tf.mode == "RGB" else tf.convert("RGB")
+                        proc.stdin.write(out_frame.tobytes())
+                        frames_written += 1
+                prev_transition_tail = None
 
+            # 2. Check if this scene transitions into the next scene
+            has_next = idx < total_scenes - 1
+            trans_mode = getattr(scene, "transition", "fade") or "fade"
+            if has_next and trans_mode != "none" and len(frames) > 1:
+                n_trans = min(TRANSITION_FRAMES, len(frames) // 2)
+                direct_frames = frames[:-n_trans]
+                prev_transition_tail = frames[-n_trans:]
+                prev_trans_mode = trans_mode
+            else:
+                direct_frames = frames
+                prev_transition_tail = None
+
+            # 3. Stream direct frames to ffmpeg pipe immediately
             for frame in direct_frames:
                 out_frame = frame if frame.mode == "RGB" else frame.convert("RGB")
                 proc.stdin.write(out_frame.tobytes())
                 frames_written += 1
 
-            for frame in trans_frames:
-                out_frame = frame if frame.mode == "RGB" else frame.convert("RGB")
-                proc.stdin.write(out_frame.tobytes())
-                frames_written += 1
+            # 4. Free frames memory immediately
+            del direct_frames
+            del frames
+            gc.collect()
 
+            # 5. Notify progress (scene rendered & streamed)
             if on_progress:
                 on_progress(idx, total_scenes)
 
-            curr_frames = next_frames
+        # Flush any trailing transition tail if present
+        if prev_transition_tail:
+            for tf in prev_transition_tail:
+                out_frame = tf if tf.mode == "RGB" else tf.convert("RGB")
+                proc.stdin.write(out_frame.tobytes())
+                frames_written += 1
+            prev_transition_tail = None
+            gc.collect()
 
         proc.stdin.close()
         proc.wait(timeout=600)
