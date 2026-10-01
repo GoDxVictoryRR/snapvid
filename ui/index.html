@@ -10,9 +10,6 @@
   <link rel="stylesheet" href="style.css?v=5.0">
 </head>
 <body class="studio-body">
-  <!-- Google Antigravity Interactive Particle Background Canvas -->
-  <canvas id="antigravity-canvas" class="antigravity-canvas" aria-hidden="true"></canvas>
-
   <!-- Dynamic Ambient Lighting Grid -->
   <div class="studio-ambient-canvas" aria-hidden="true">
     <div class="ambient-glow glow-primary"></div>
@@ -381,39 +378,6 @@
         </div>
       </div>
 
-      <!-- Hardware Engine Telemetry Module -->
-      <div class="card sidebar-card benchmark-card">
-        <div class="sidebar-header">
-          <div class="sidebar-header-left">
-            <span class="sidebar-icon icon-amber">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-            </span>
-            <h3>Hardware Telemetry</h3>
-          </div>
-          <span class="telemetry-live-dot" title="Live System Metrics"></span>
-        </div>
-        <div class="benchmark-stats" id="benchmark-stats">
-          <div class="bench-row">
-            <span class="bench-label">Silicon Engine</span>
-            <span class="bench-val" id="bench-device">Snapdragon X Elite</span>
-          </div>
-          <div class="bench-row">
-            <span class="bench-label">Planning Latency</span>
-            <span class="bench-val" id="bench-llm">~2.1s / scene</span>
-          </div>
-          <div class="bench-row">
-            <span class="bench-label">LLM Throughput</span>
-            <span class="bench-val highlight-amber" id="bench-tps">22 tok/s</span>
-          </div>
-          <div class="bench-row">
-            <span class="bench-label">Renderer Pipeline</span>
-            <span class="bench-val highlight-cyan" id="bench-fps">30 fps native</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Features Checklist Card -->
       <div class="card sidebar-card pro-card">
         <div class="pro-card-header">
@@ -430,6 +394,135 @@
 
     </aside>
   </main>
+
+  <!-- Studio Bottom Telemetry Dock -->
+  <section class="telemetry-bottom-dock">
+    <div class="card telemetry-bottom-card" id="telemetry-bottom-card">
+      <div class="telemetry-dock-header">
+        <div class="telemetry-title-group">
+          <span class="telemetry-icon icon-amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </span>
+          <div class="telemetry-title-text">
+            <h3>Hardware Engine Telemetry</h3>
+            <span class="telemetry-subtitle">Real-Time Silicon Acceleration & System Metrics</span>
+          </div>
+        </div>
+        <div class="telemetry-dock-actions">
+          <span class="telemetry-live-pill">
+            <span class="telemetry-live-dot"></span>
+            <span id="telemetry-status-text">Live Polling (3s)</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Real Hardware Telemetry Grid -->
+      <div class="telemetry-grid">
+        <!-- CPU Card -->
+        <div class="telemetry-col" id="col-cpu">
+          <div class="telemetry-col-header">
+            <div class="col-title-wrap">
+              <span class="col-glyph">🧠</span>
+              <span class="col-label">CPU Silicon</span>
+            </div>
+            <span class="telemetry-badge" id="telemetry-cpu-cores">12 Cores</span>
+          </div>
+          <div class="telemetry-model-name" id="telemetry-cpu-name">Detecting CPU...</div>
+          <div class="telemetry-metrics-row">
+            <div class="telemetry-stat">
+              <span class="stat-caption">Compute Load</span>
+              <span class="stat-number" id="telemetry-cpu-load">0.0%</span>
+            </div>
+            <div class="telemetry-stat">
+              <span class="stat-caption">RAM Memory</span>
+              <span class="stat-number" id="telemetry-cpu-ram">0.0%</span>
+            </div>
+          </div>
+          <div class="telemetry-meter-track">
+            <div class="telemetry-meter-fill meter-cpu" id="telemetry-cpu-bar" style="width: 15%"></div>
+          </div>
+        </div>
+
+        <!-- GPU Card -->
+        <div class="telemetry-col" id="col-gpu">
+          <div class="telemetry-col-header">
+            <div class="col-title-wrap">
+              <span class="col-glyph">⚡</span>
+              <span class="col-label">GPU Acceleration</span>
+            </div>
+            <span class="telemetry-badge badge-active" id="telemetry-gpu-status">Active</span>
+          </div>
+          <div class="telemetry-model-name" id="telemetry-gpu-name">Detecting GPU...</div>
+          <div class="telemetry-metrics-row">
+            <div class="telemetry-stat">
+              <span class="stat-caption">GPU Load</span>
+              <span class="stat-number" id="telemetry-gpu-load">0.0%</span>
+            </div>
+            <div class="telemetry-stat">
+              <span class="stat-caption">VRAM Allocation</span>
+              <span class="stat-number" id="telemetry-gpu-vram">0 / 0 MB</span>
+            </div>
+          </div>
+          <div class="telemetry-meter-track">
+            <div class="telemetry-meter-fill meter-gpu" id="telemetry-gpu-bar" style="width: 10%"></div>
+          </div>
+        </div>
+
+        <!-- NPU Card -->
+        <div class="telemetry-col" id="col-npu">
+          <div class="telemetry-col-header">
+            <div class="col-title-wrap">
+              <span class="col-glyph">🔮</span>
+              <span class="col-label">Qualcomm NPU</span>
+            </div>
+            <span class="telemetry-badge badge-npu" id="telemetry-npu-tops">45.0 TOPS</span>
+          </div>
+          <div class="telemetry-model-name" id="telemetry-npu-name">Snapdragon Hexagon Engine</div>
+          <div class="telemetry-metrics-row">
+            <div class="telemetry-stat">
+              <span class="stat-caption">Acceleration</span>
+              <span class="stat-number highlight-emerald" id="telemetry-npu-state">Accelerated</span>
+            </div>
+            <div class="telemetry-stat">
+              <span class="stat-caption">Engine Target</span>
+              <span class="stat-number" id="telemetry-npu-arch">Snapdragon X</span>
+            </div>
+          </div>
+          <div class="telemetry-meter-track">
+            <div class="telemetry-meter-fill meter-npu" id="telemetry-npu-bar" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <!-- Pipeline Benchmark Card (Preserves existing IDs) -->
+        <div class="telemetry-col" id="col-bench">
+          <div class="telemetry-col-header">
+            <div class="col-title-wrap">
+              <span class="col-glyph">⏱️</span>
+              <span class="col-label">Generation Pipeline</span>
+            </div>
+            <span class="telemetry-badge" id="bench-device">Snapdragon X Elite</span>
+          </div>
+          <div class="telemetry-metrics-row bench-pipeline-row">
+            <div class="telemetry-stat">
+              <span class="stat-caption">Plan Latency</span>
+              <span class="stat-number" id="bench-llm">~2.1s / scene</span>
+            </div>
+            <div class="telemetry-stat">
+              <span class="stat-caption">LLM Speed</span>
+              <span class="stat-number highlight-amber" id="bench-tps">22 tok/s</span>
+            </div>
+            <div class="telemetry-stat">
+              <span class="stat-caption">Renderer</span>
+              <span class="stat-number highlight-cyan" id="bench-fps">30 fps</span>
+            </div>
+          </div>
+          <div id="benchmark-stats" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Slide-In Settings Drawer (Right Side) -->
   <div id="settings-backdrop" class="drawer-backdrop" hidden></div>
@@ -559,7 +652,6 @@
     </div>
   </footer>
 
-  <script src="antigravity-bg.js?v=1.0"></script>
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>

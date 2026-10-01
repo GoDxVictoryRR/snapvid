@@ -55,6 +55,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const benchFps = document.getElementById("bench-fps");
   const badgeNpuText = document.getElementById("badge-npu-text");
 
+  // Real Hardware Telemetry DOM elements
+  const telemetryCpuName = document.getElementById("telemetry-cpu-name");
+  const telemetryCpuCores = document.getElementById("telemetry-cpu-cores");
+  const telemetryCpuLoad = document.getElementById("telemetry-cpu-load");
+  const telemetryCpuRam = document.getElementById("telemetry-cpu-ram");
+  const telemetryCpuBar = document.getElementById("telemetry-cpu-bar");
+
+  const telemetryGpuName = document.getElementById("telemetry-gpu-name");
+  const telemetryGpuStatus = document.getElementById("telemetry-gpu-status");
+  const telemetryGpuLoad = document.getElementById("telemetry-gpu-load");
+  const telemetryGpuVram = document.getElementById("telemetry-gpu-vram");
+  const telemetryGpuBar = document.getElementById("telemetry-gpu-bar");
+
+  const telemetryNpuName = document.getElementById("telemetry-npu-name");
+  const telemetryNpuTops = document.getElementById("telemetry-npu-tops");
+  const telemetryNpuState = document.getElementById("telemetry-npu-state");
+  const telemetryNpuArch = document.getElementById("telemetry-npu-arch");
+  const telemetryNpuBar = document.getElementById("telemetry-npu-bar");
+
   let pollInterval = null;
   let eventSource = null;
 
@@ -675,15 +694,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadBenchmarks() {
     try {
-      const res = await fetch("/benchmark");
+      const res = await fetch("/telemetry");
       if (!res.ok) return;
-      const bench = await res.json();
-      if (bench.device) benchDevice.textContent = bench.device;
-      if (bench.llm_latency_sec) benchLlm.textContent = `~${bench.llm_latency_sec}s / scene`;
-      if (bench.llm_tokens_per_sec) benchTps.textContent = `${bench.llm_tokens_per_sec} tok/s`;
-      if (bench.renderer_fps) benchFps.textContent = `${bench.renderer_fps} fps native`;
+      const data = await res.json();
+
+      // Generation pipeline stats
+      if (data.device && benchDevice) benchDevice.textContent = data.device;
+      if (data.llm_latency_sec && benchLlm) benchLlm.textContent = `~${data.llm_latency_sec}s / scene`;
+      if (data.llm_tokens_per_sec && benchTps) benchTps.textContent = `${data.llm_tokens_per_sec} tok/s`;
+      if (data.renderer_fps && benchFps) benchFps.textContent = `${data.renderer_fps} fps`;
+
+      // Real CPU Metrics
+      if (data.cpu) {
+        if (telemetryCpuName && data.cpu.name) telemetryCpuName.textContent = data.cpu.name;
+        if (telemetryCpuCores && data.cpu.cores) telemetryCpuCores.textContent = `${data.cpu.cores} Cores`;
+        if (telemetryCpuLoad && data.cpu.usage_percent !== undefined) {
+          telemetryCpuLoad.textContent = `${data.cpu.usage_percent}%`;
+          if (telemetryCpuBar) telemetryCpuBar.style.width = `${Math.min(100, Math.max(6, data.cpu.usage_percent))}%`;
+        }
+        if (telemetryCpuRam && data.cpu.ram_percent !== undefined) {
+          const used = data.cpu.ram_used_gb ? `${data.cpu.ram_used_gb}G` : "";
+          const total = data.cpu.ram_total_gb ? ` / ${data.cpu.ram_total_gb}G` : "";
+          telemetryCpuRam.textContent = `${data.cpu.ram_percent}% ${used ? `(${used}${total})` : ""}`;
+        }
+      }
+
+      // Real GPU Metrics
+      if (data.gpu) {
+        if (telemetryGpuName && data.gpu.name) telemetryGpuName.textContent = data.gpu.name;
+        if (telemetryGpuStatus && data.gpu.status) telemetryGpuStatus.textContent = data.gpu.status;
+        if (telemetryGpuLoad && data.gpu.usage_percent !== undefined) {
+          telemetryGpuLoad.textContent = `${data.gpu.usage_percent}%`;
+          if (telemetryGpuBar) telemetryGpuBar.style.width = `${Math.min(100, Math.max(6, data.gpu.usage_percent))}%`;
+        }
+        if (telemetryGpuVram && (data.gpu.memory_total_mb || data.gpu.memory_used_mb)) {
+          telemetryGpuVram.textContent = `${data.gpu.memory_used_mb || 0} / ${data.gpu.memory_total_mb || 0} MB`;
+        }
+      }
+
+      // Real NPU Metrics
+      if (data.npu) {
+        if (telemetryNpuName && data.npu.name) telemetryNpuName.textContent = data.npu.name;
+        if (telemetryNpuTops && data.npu.tops) telemetryNpuTops.textContent = `${data.npu.tops} TOPS`;
+        if (telemetryNpuState && data.npu.status) telemetryNpuState.textContent = data.npu.status;
+        if (telemetryNpuArch && data.npu.architecture) telemetryNpuArch.textContent = data.npu.architecture;
+        if (telemetryNpuBar) telemetryNpuBar.style.width = "100%";
+      }
     } catch (err) {
-      console.warn("Could not load benchmarks:", err);
+      console.warn("Could not load telemetry/benchmarks:", err);
     }
   }
 
@@ -734,4 +792,5 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   loadHistory();
   loadBenchmarks();
+  setInterval(loadBenchmarks, 3000);
 });

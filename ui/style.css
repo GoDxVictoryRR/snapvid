@@ -10,17 +10,17 @@
    Liquid Glass Theme Tokens
    ========================================================================== */
 :root, [data-theme="dark"] {
-  /* DARK MODE: Pure Obsidian Carbon & Pitch Charcoal — ZERO BLUE */
-  --bg-canvas: #09090C;
-  --bg-subcanvas: #121215;
+  /* DARK MODE: Pure Black Background & Specular Liquid Glass — ZERO BLUE */
+  --bg-canvas: #000000;
+  --bg-subcanvas: #000000;
 
   /* Translucent Liquid Glass Materials */
-  --glass-base: rgba(22, 22, 28, 0.65);
-  --glass-elevated: rgba(28, 28, 36, 0.78);
-  --glass-active: rgba(38, 38, 48, 0.88);
-  --glass-input: rgba(14, 14, 18, 0.85);
-  --glass-terminal: #07070A;
-  --glass-drawer: rgba(15, 15, 19, 0.95);
+  --glass-base: rgba(14, 14, 16, 0.75);
+  --glass-elevated: rgba(20, 20, 24, 0.85);
+  --glass-active: rgba(28, 28, 34, 0.92);
+  --glass-input: rgba(10, 10, 12, 0.90);
+  --glass-terminal: #000000;
+  --glass-drawer: rgba(6, 6, 8, 0.98);
 
   /* Specular Sheen & Refraction Edges */
   --border-glass: rgba(255, 255, 255, 0.12);
@@ -164,13 +164,8 @@
   padding: 0;
 }
 
-html {
-  background-color: var(--bg-canvas);
-  min-height: 100%;
-}
-
 body.studio-body {
-  background-color: transparent;
+  background-color: var(--bg-canvas);
   color: var(--text-main);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
@@ -180,27 +175,17 @@ body.studio-body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: color 0.35s ease;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 /* ==========================================================================
-   Google Antigravity Interactive Particle Canvas & Ambient Layer
+   Liquid Studio Ambient Lighting & Caustics Canvas
    ========================================================================== */
-.antigravity-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: -1;
-  display: block;
-}
-
 .studio-ambient-canvas {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: -2;
+  z-index: 0;
   overflow: hidden;
 }
 
@@ -1496,42 +1481,320 @@ body.studio-body {
   padding: 24px 0;
 }
 
-/* Benchmark Telemetry */
-.benchmark-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ==========================================================================
+   Hardware Engine Telemetry Bottom Dock
+   ========================================================================== */
+.telemetry-bottom-dock {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto 36px;
+  padding: 0 28px;
+  position: relative;
+  z-index: 1;
 }
 
-.bench-row {
+.telemetry-bottom-card {
+  padding: 24px 28px;
+  border-radius: var(--radius-xl);
+}
+
+.telemetry-dock-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 14px;
-  background: var(--bench-row-bg);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--bench-row-border);
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.bench-label {
-  font-size: 0.8rem;
+.telemetry-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.telemetry-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--cyber-amber);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+}
+
+.telemetry-title-text h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.telemetry-subtitle {
+  font-size: 0.78rem;
   color: var(--text-muted);
   font-weight: 500;
 }
 
-.bench-val {
+.telemetry-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-sub);
+  color: #10B981;
 }
 
-.bench-val.highlight-amber {
+.telemetry-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+/* 4-Column Real Hardware Telemetry Grid */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .telemetry-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .telemetry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.telemetry-col {
+  background: var(--bench-row-bg);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--specular-sheen);
+  transition: all 0.25s ease;
+}
+
+.telemetry-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.col-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.col-glyph {
+  font-size: 1.05rem;
+}
+
+.col-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telemetry-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+}
+
+.telemetry-badge.badge-active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10B981;
+}
+
+.telemetry-badge.badge-npu {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
   color: #F59E0B;
 }
 
-.bench-val.highlight-cyan {
-  color: var(--coral-flame);
+.telemetry-model-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-bottom: 2px;
+}
+
+.telemetry-metrics-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bench-pipeline-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.telemetry-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bench-pipeline-row .telemetry-stat {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 4px;
+}
+
+.stat-caption {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.stat-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.highlight-emerald { color: #10B981 !important; }
+.highlight-amber { color: #F59E0B !important; }
+.highlight-cyan { color: var(--coral-flame) !important; }
+
+/* Meter Tracks & Glowing Fills */
+.telemetry-meter-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.telemetry-meter-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.meter-cpu {
+  background: linear-gradient(90deg, #F59E0B 0%, #FF5A36 100%);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.meter-gpu {
+  background: linear-gradient(90deg, #FF385C 0%, #FFA033 100%);
+  box-shadow: 0 0 8px rgba(255, 56, 92, 0.5);
+}
+
+.meter-npu {
+  background: linear-gradient(90deg, #10B981 0%, #34D399 100%);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+/* ==========================================================================
+   Liquid Glass White Growing Border System (Dark Mode)
+   ========================================================================== */
+@keyframes whiteBorderGrowPulse {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.20);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12),
+                0 8px 32px rgba(0, 0, 0, 0.95);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.50);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38),
+                0 0 20px 2px rgba(255, 255, 255, 0.18),
+                0 14px 40px rgba(0, 0, 0, 0.98);
+  }
+}
+
+[data-theme="dark"] body.studio-body {
+  background-color: #000000 !important;
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .studio-ambient-canvas {
+  background-color: #000000;
+}
+
+/* White Growing Border on cards and components in Dark Mode */
+[data-theme="dark"] .card,
+[data-theme="dark"] .settings-drawer,
+[data-theme="dark"] .telemetry-col {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  animation: whiteBorderGrowPulse 4.5s ease-in-out infinite;
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Interactive White Growing Border on Hover */
+[data-theme="dark"] .card:hover,
+[data-theme="dark"] .telemetry-col:hover,
+[data-theme="dark"] .sidebar-card:hover {
+  border-color: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 0 0 2.5px rgba(255, 255, 255, 0.65),
+              0 0 28px 4px rgba(255, 255, 255, 0.26),
+              0 18px 48px rgba(0, 0, 0, 1) !important;
+  transform: translateY(-2px);
+}
+
+/* White Growing Border on Input Fields & Dropdowns */
+[data-theme="dark"] .textarea-wrapper:focus-within,
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-select:focus {
+  border-color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55),
+              0 0 22px 2px rgba(255, 255, 255, 0.25) !important;
+}
+
+/* White Growing Border on Pills, Buttons & Interactive Elements */
+[data-theme="dark"] .preset-pill:hover,
+[data-theme="dark"] .ratio-pill:hover,
+[data-theme="dark"] .btn-secondary:hover,
+[data-theme="dark"] .theme-toggle-btn:hover,
+[data-theme="dark"] .settings-btn:hover,
+[data-theme="dark"] .icon-btn:hover {
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5),
+              0 0 16px rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Pro Features Core Card */

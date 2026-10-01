@@ -293,7 +293,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(200, res)
         elif path == "/history":
             self._json(200, load_history())
-        elif path == "/benchmark":
+        elif path in ("/benchmark", "/telemetry"):
             self._json(200, get_latest_benchmark())
         elif path.startswith("/status/"):
             self._json(200, _jobs.get(path.split("/")[-1], {"state": "unknown"}))

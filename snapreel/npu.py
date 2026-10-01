@@ -122,11 +122,16 @@ class NPUProfiler:
 
 
 def get_latest_benchmark() -> dict[str, Any]:
-    """Retrieve the latest measured benchmark metrics."""
-    return dict(_LAST_BENCHMARK)
+    """Retrieve the latest measured benchmark metrics enriched with real hardware telemetry."""
+    try:
+        from snapreel.telemetry import get_system_telemetry
+        return get_system_telemetry()
+    except Exception:
+        return dict(_LAST_BENCHMARK)
 
 
 __all__ = [
     "NPUProfiler",
     "get_latest_benchmark",
 ]
+
