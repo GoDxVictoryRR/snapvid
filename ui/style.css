@@ -60,8 +60,8 @@
   --pill-title-color: #FFFFFF;
 
   /* Header & Navigation */
-  --header-bg: rgba(9, 9, 12, 0.82);
-  --header-border: rgba(255, 255, 255, 0.07);
+  --header-bg: rgba(9, 9, 12, 0.85);
+  --header-border: rgba(255, 255, 255, 0.16);
 
   /* Brand Heading Gradient */
   --brand-grad: linear-gradient(135deg, #FFFFFF 30%, #FF85A1 75%, #FFA033 100%);
@@ -122,8 +122,8 @@
   --pill-title-color: #18181B;
 
   /* Header & Navigation */
-  --header-bg: rgba(244, 244, 246, 0.84);
-  --header-border: rgba(0, 0, 0, 0.08);
+  --header-bg: rgba(244, 244, 246, 0.88);
+  --header-border: rgba(0, 0, 0, 0.14);
 
   /* Brand Heading Gradient */
   --brand-grad: linear-gradient(135deg, #18181B 30%, #FF385C 75%, #F59E0B 100%);
@@ -255,9 +255,13 @@ body.studio-body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 22px 24px 14px 24px;
+  padding: 18px 24px 14px 24px;
+  background: var(--header-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
   position: relative;
   z-index: 101;
+  transition: background 0.35s ease;
 }
 
 .top-brand-center {
@@ -376,15 +380,15 @@ body.studio-body {
 .app-header {
   width: 100%;
   border-top: 1px solid var(--header-border);
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: 1.5px solid var(--header-border);
   background: var(--header-bg);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-  transition: background 0.35s ease, border-color 0.35s ease;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
 .header-inner {
