@@ -206,10 +206,19 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
         _jobs[job_id] = {"state": "done", "progress": 100, "status": "Rendering complete!", "output": f"/output/{out_file.name}"}
         _record_event(job_id, {"type": "done", "data": {"output": f"/output/{out_file.name}", "scenes": total}})
         logger.info("Job %s finished: %s", job_id, out_file)
+        # Clean up intermediate scene audio files to release disk and memory
+        if has_narration and wav_dir.exists():
+            import shutil
+            shutil.rmtree(wav_dir, ignore_errors=True)
+        import gc; gc.collect()
     except Exception as exc:
         logger.error("Job %s failed: %s", job_id, exc)
         _jobs[job_id] = {"state": "error", "error": str(exc), "progress": 0, "status": "Failed"}
         _record_event(job_id, {"type": "error", "data": {"error": str(exc)}})
+        if has_narration and 'wav_dir' in locals() and wav_dir.exists():
+            import shutil
+            shutil.rmtree(wav_dir, ignore_errors=True)
+        import gc; gc.collect()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

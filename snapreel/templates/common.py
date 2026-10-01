@@ -217,7 +217,12 @@ def apply_grain(img: Image.Image, strength: float = 0.03, frame_idx: int = 0) ->
 # ── Cached animated background ────────────────────────────────────────────────
 # Cache key: global_frame // 3 — background updates every 3 frames (imperceptible at 24fps)
 _BG_CACHE: dict[tuple, np.ndarray] = {}
-_BG_CACHE_MAX = 512  # keep at most 512 entries (~21s at 24fps)
+_BG_CACHE_MAX = 4  # keep at most 4 entries (~11MB RAM vs 1,415MB; frames render sequentially)
+
+
+def clear_bg_cache() -> None:
+    """Clear the animated background cache to release all RAM immediately."""
+    _BG_CACHE.clear()
 
 
 def make_animated_bg(
@@ -230,7 +235,7 @@ def make_animated_bg(
 ) -> Image.Image:
     """Cached animated gradient background with drifting glow orbs.
 
-    Background is recomputed only every 3 frames; cache keeps 512 entries.
+    Background is recomputed only every 3 frames; cache keeps at most 4 entries.
     Orbs use 4 concentric ellipses (was 12) — same visual result, 3x faster.
     """
     w, h = get_canvas_size()
@@ -241,10 +246,7 @@ def make_animated_bg(
 
     if cache_key not in _BG_CACHE:
         if len(_BG_CACHE) >= _BG_CACHE_MAX:
-            # Evict oldest quarter
-            old_keys = sorted(_BG_CACHE)[:_BG_CACHE_MAX // 4]
-            for k in old_keys:
-                del _BG_CACHE[k]
+            _BG_CACHE.clear()
 
         t = cache_gf / 600.0
         shift = 0.5 + 0.5 * math.sin(t * 2.0 * math.pi)

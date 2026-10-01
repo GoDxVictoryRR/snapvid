@@ -19,6 +19,6 @@ services:
       - key: RATE_LIMIT_PER_HOUR
         value: "10"  # Max videos per client IP per hour
       - key: MAX_CONCURRENT_JOBS
-        value: "2"   # Max concurrent rendering jobs
+        value: "1"   # Max concurrent rendering jobs (1 for 512MB RAM tier)
       - key: TTS_ENGINE
         value: edge  # Neural cloud voice on Linux container

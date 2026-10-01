@@ -26,6 +26,7 @@ from snapreel.schema import Scene, SceneScript
 from snapreel.templates import TEMPLATES
 from snapreel.templates.common import (
     DEFAULT_FPS,
+    clear_bg_cache,
     draw_kinetic_captions,
     prepare_kinetic_captions,
     get_canvas_size,
@@ -253,6 +254,7 @@ def render_video(
             # 4. Free frames memory immediately
             del direct_frames
             del frames
+            clear_bg_cache()
             gc.collect()
 
             # 5. Notify progress (scene rendered & streamed)
@@ -266,6 +268,7 @@ def render_video(
                 proc.stdin.write(out_frame.tobytes())
                 frames_written += 1
             prev_transition_tail = None
+            clear_bg_cache()
             gc.collect()
 
         proc.stdin.close()
