@@ -299,6 +299,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(200, _jobs.get(path.split("/")[-1], {"state": "unknown"}))
         elif path.startswith("/output/"):
             self._serve_output(path.split("/")[-1])
+        elif path == "/favicon.ico":
+            fav = UI_DIR / "favicon.svg"
+            if fav.exists():
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(fav.stat().st_size))
+                self.end_headers()
+                with open(fav, "rb") as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_response(204)
+                self.end_headers()
         else:
             super().do_GET()
 

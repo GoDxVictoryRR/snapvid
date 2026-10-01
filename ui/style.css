@@ -164,6 +164,15 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
 body.studio-body {
   background-color: var(--bg-canvas);
   color: var(--text-main);
@@ -1026,6 +1035,12 @@ body.studio-body {
   border-color: rgba(255, 56, 92, 0.35);
   color: var(--coral-flame);
   transform: translateY(-1px);
+}
+
+.tag-btn:active, .tag-btn.tag-clicked {
+  transform: scale(0.95);
+  background: rgba(255, 56, 92, 0.22);
+  border-color: rgba(255, 56, 92, 0.6);
 }
 
 .cat-dot {

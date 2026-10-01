@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SnapVid — Studio Pro Video Maker</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=7.2">
+  <link rel="stylesheet" href="style.css?v=8.0">
 </head>
 <body class="studio-body">
   <!-- Dynamic Ambient Lighting Grid -->
@@ -565,7 +566,7 @@
       </button>
     </div>
 
-    <div class="drawer-body">
+    <form id="settings-form" class="drawer-body" autocomplete="off" onsubmit="event.preventDefault();">
       <!-- Section 1: LLM Engine -->
       <div class="settings-section">
         <h4 class="settings-sec-title">LLM Intelligence Engine</h4>
@@ -599,7 +600,7 @@
 
         <div class="form-group">
           <label for="setting-api-key">Personal API Key</label>
-          <input type="password" id="setting-api-key" class="form-input" placeholder="Leave blank for local backends">
+          <input type="password" id="setting-api-key" class="form-input" autocomplete="new-password" placeholder="Leave blank for local backends">
           <div class="privacy-badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span><strong>Privacy First:</strong> Your key is held strictly in your browser and used in-memory for your session. It is never logged or stored on the server.</span>
@@ -657,9 +658,9 @@
       </div>
 
       <div class="drawer-footer">
-        <button id="save-settings-btn" class="btn-primary w-full">Save & Apply Preferences</button>
+        <button id="save-settings-btn" type="submit" class="btn-primary w-full">Save & Apply Preferences</button>
       </div>
-    </div>
+    </form>
   </aside>
 
   <!-- Toast Notification -->
@@ -672,6 +673,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=6.0"></script>
+  <script src="app.js?v=8.0"></script>
 </body>
 </html>

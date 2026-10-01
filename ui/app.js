@@ -30,6 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const historyList = document.getElementById("history-list");
   const tagButtons = document.querySelectorAll(".tag-btn");
 
+  // Pipeline Stepper Elements
+  const stepPlan = document.getElementById("step-plan");
+  const stepTts = document.getElementById("step-tts");
+  const stepRender = document.getElementById("step-render");
+  const stepMux = document.getElementById("step-mux");
+
   // Settings Elements
   const openSettingsBtn = document.getElementById("open-settings-btn");
   const closeSettingsBtn = document.getElementById("close-settings-btn");
@@ -300,6 +306,20 @@ document.addEventListener("DOMContentLoaded", () => {
   settingsBackdrop.addEventListener("click", closeSettings);
   saveSettingsBtn.addEventListener("click", saveSettings);
 
+  const settingsForm = document.getElementById("settings-form");
+  if (settingsForm) {
+    settingsForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveSettings();
+    });
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && settingsDrawer && settingsDrawer.classList.contains("open")) {
+      closeSettings();
+    }
+  });
+
   // Test connection button
   testLlmBtn.addEventListener("click", async () => {
     testLlmStatus.textContent = "Testing...";
@@ -336,6 +356,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       topicInput.value = btn.getAttribute("data-topic") || "";
       topicInput.focus();
+      btn.classList.add("tag-clicked");
+      setTimeout(() => btn.classList.remove("tag-clicked"), 300);
     });
   });
 
@@ -403,6 +425,29 @@ document.addEventListener("DOMContentLoaded", () => {
     agentStatusBadge.className = "badge error";
   }
 
+  function setPipelineStep(activeStepId) {
+    const steps = [
+      { id: "step-plan", el: stepPlan },
+      { id: "step-tts", el: stepTts },
+      { id: "step-render", el: stepRender },
+      { id: "step-mux", el: stepMux },
+    ];
+    let found = false;
+    steps.forEach((s) => {
+      if (!s.el) return;
+      if (activeStepId === "done") {
+        s.el.className = "step-item done";
+      } else if (s.id === activeStepId) {
+        s.el.className = "step-item active";
+        found = true;
+      } else if (!found) {
+        s.el.className = "step-item done";
+      } else {
+        s.el.className = "step-item";
+      }
+    });
+  }
+
   function resetPanels() {
     statusPanel.hidden = true;
     resultPanel.hidden = true;
@@ -413,6 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
     progressPercent.textContent = "0%";
     agentStatusBadge.textContent = "Running";
     agentStatusBadge.className = "badge running";
+    setPipelineStep("step-plan");
   }
 
   function appendAgentLog(type, icon, message) {
@@ -435,6 +481,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function handleAgentEvent(type, data = {}) {
     switch (type) {
       case "planning_start":
+        setPipelineStep("step-plan");
         appendAgentLog("info", "🧠", `Planning scenes for: <strong>"${escapeHtml(data.topic || "")}"</strong>`);
         statusText.textContent = "Planning video script with LLM...";
         progressFill.style.width = "10%";
@@ -455,6 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
 
       case "plan_accepted":
+        setPipelineStep("step-plan");
         appendAgentLog(
           "success plan_accepted",
           "✅",
@@ -483,6 +531,7 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
 
       case "tts_start":
+        setPipelineStep("step-tts");
         appendAgentLog("info", "🎙️", `Generating narration audio via engine: <strong>${data.engine || "auto"}</strong>`);
         statusText.textContent = "Synthesizing voice audio...";
         progressFill.style.width = "30%";
@@ -490,11 +539,13 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
 
       case "tts_done":
+        setPipelineStep("step-render");
         const narrInfo = data.narration_duration ? ` (speech: ${data.narration_duration}s)` : "";
         appendAgentLog("success", "🔊", `Audio ready — video will be <strong>${data.duration}s</strong>${narrInfo}`);
         break;
 
       case "render_progress":
+        setPipelineStep("step-render");
         appendAgentLog("info", "🎬", `Rendering scene <strong>${data.scene}/${data.total}</strong> (${data.percent}%)`);
         statusText.textContent = `Rendering scene ${data.scene} of ${data.total}...`;
         const pct = Math.max(30, Math.min(98, data.percent || 30));
@@ -503,6 +554,7 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
 
       case "done":
+        setPipelineStep("done");
         appendAgentLog("success done", "🎉", `Video generated successfully!`);
         agentStatusBadge.textContent = "Completed";
         agentStatusBadge.className = "badge success";
