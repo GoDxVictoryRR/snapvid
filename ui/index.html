@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=6.0">
 </head>
 <body class="studio-body">
   <!-- Dynamic Ambient Lighting Grid -->
@@ -21,14 +21,26 @@
   <!-- Studio Master Topbar -->
   <header class="app-header">
     <div class="header-inner">
-      <div class="brand">
+      <!-- Left: Active Pipeline Pill -->
+      <div class="header-left">
+        <div class="studio-pipeline-pill" title="Active Creative Pipeline">
+          <span class="pipeline-step"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Audio-First Sync</span>
+          <span class="pipeline-divider">•</span>
+          <span class="pipeline-step">10 Motion Templates</span>
+          <span class="pipeline-divider">•</span>
+          <span class="pipeline-step">Multi-Aspect Canvas</span>
+        </div>
+      </div>
+
+      <!-- Center: Brand Logo & Title Front and Center -->
+      <div class="brand header-brand-center">
         <div class="brand-logo" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <svg width="30" height="30" viewBox="0 0 28 28" fill="none">
             <defs>
               <linearGradient id="snapvid-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FF3366" />
+                <stop offset="0%" stop-color="#FF385C" />
                 <stop offset="50%" stop-color="#8B5CF6" />
-                <stop offset="100%" stop-color="#06B6D4" />
+                <stop offset="100%" stop-color="#FFA033" />
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="24" height="24" rx="7" fill="url(#snapvid-grad)" />
@@ -43,15 +55,6 @@
           </div>
           <span class="brand-sub">Agentic Explainer Engine</span>
         </div>
-      </div>
-
-      <!-- Studio Mode Pill -->
-      <div class="studio-pipeline-pill" title="Active Creative Pipeline">
-        <span class="pipeline-step"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Audio-First Sync</span>
-        <span class="pipeline-divider">•</span>
-        <span class="pipeline-step">10 Motion Templates</span>
-        <span class="pipeline-divider">•</span>
-        <span class="pipeline-step">Multi-Aspect Canvas</span>
       </div>
 
       <!-- Header Status Actions -->
@@ -652,6 +655,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=5.0"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>
