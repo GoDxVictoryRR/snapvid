@@ -7,9 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.0">
+  <link rel="stylesheet" href="style.css?v=5.0">
 </head>
 <body class="studio-body">
+  <!-- Google Antigravity Interactive Particle Background Canvas -->
+  <canvas id="antigravity-canvas" class="antigravity-canvas" aria-hidden="true"></canvas>
+
   <!-- Dynamic Ambient Lighting Grid -->
   <div class="studio-ambient-canvas" aria-hidden="true">
     <div class="ambient-glow glow-primary"></div>
@@ -556,6 +559,7 @@
     </div>
   </footer>
 
+  <script src="antigravity-bg.js?v=1.0"></script>
   <script src="app.js?v=4.0"></script>
 </body>
 </html>
