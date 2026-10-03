@@ -82,16 +82,22 @@ SnapVid includes a full-featured browser-based workspace styled in modern dark g
 <!-- 📸 SCREENSHOT PLACEHOLDERS — Drag & drop your screenshots below or update image paths -->
 
 ### Web Studio Dashboard
-![Web Studio Dashboard](docs/screenshots/web_studio_dashboard.png)
+<img width="1919" height="916" alt="Screenshot 2026-10-02 010514" src="https://github.com/user-attachments/assets/a482feda-d063-455d-99b6-cdd9463a1533" />
+<img width="1917" height="925" alt="Screenshot 2026-10-02 010427" src="https://github.com/user-attachments/assets/a166c6b0-672b-4ae7-95c1-e56f235edcb0" />
 
 ### Real-Time Agent Activity Tracker
-![Agent Activity Tracker](docs/screenshots/agent_activity.png)
+<img width="1324" height="872" alt="Screenshot 2026-10-02 010533" src="https://github.com/user-attachments/assets/2e85fd45-9b01-4281-9bc6-f46bd061d399" />
+<img width="1915" height="903" alt="Screenshot 2026-10-02 010500" src="https://github.com/user-attachments/assets/27a4fecf-43a5-4a21-b85f-1e3756503a14" />
+
 
 ### Live Video Player & Dynamic Karaoke Captions
-![Video Player and Subtitles](docs/screenshots/video_player.png)
+<img width="1255" height="867" alt="Screenshot 2026-10-03 154114" src="https://github.com/user-attachments/assets/afb5f479-0312-433e-ac98-ad7c084cea96" />
 
-### Motion Graphic Templates & Canvas Layouts
-![Visual Templates & Canvas Showcase](docs/screenshots/templates_canvas.png)
+
+### Hardware Engine Telemetry
+<img width="1918" height="868" alt="Screenshot 2026-10-02 010545" src="https://github.com/user-attachments/assets/165f208b-083a-490a-aa7b-3a8212adc58f" />
+
+<img width="1919" height="882" alt="Screenshot 2026-10-02 010445" src="https://github.com/user-attachments/assets/f1b3c78d-4660-4df3-aa27-b33bcedcecdc" />
 
 ---
 
