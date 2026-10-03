@@ -168,7 +168,7 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
                 raw_f[-1] = max(1, raw_f[-1] + diff)
             for idx, s in enumerate(scs):
                 s.duration = round(raw_f[idx] / RENDER_FPS, 4)
-            return round(sum(s.duration for s in scs), 4)
+            return round(sum(s.duration for s in scs), 2)
 
         if has_narration:
             wav_dir = out_file.parent / f"{job_id}_audio"

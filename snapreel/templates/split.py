@@ -42,7 +42,7 @@ def render_frames(
 
     w, h = get_canvas_size()
     ratio = get_canvas_ratio()
-    is_vertical = (ratio == "9:16")
+    is_vertical = ratio in ("9:16", "1:1")
 
     h2_size = 32 if is_vertical else (34 if ratio == "4:3" else 38)
     body_size = 22 if is_vertical else (24 if ratio == "4:3" else 28)
