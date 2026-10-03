@@ -14,6 +14,7 @@
 ## 📑 Table of Contents
 
 - [Overview](#overview)
+- [Screenshots](#screenshots)
 - [Key Architectural Highlights](#key-architectural-highlights)
 - [Interactive Web Studio UI](#interactive-web-studio-ui)
 - [System Architecture](#system-architecture)
@@ -73,6 +74,24 @@ SnapVid includes a full-featured browser-based workspace styled in modern dark g
 - **Dynamic Settings Drawer:** Override LLM providers (Ollama, Qualcomm GenieX, OpenAI, Groq, Together AI, Google Gemini, NVIDIA NIM), custom Base URLs, and API keys without restarting the server.
 - **Test Connections:** Live ping buttons to verify LLM connectivity and TTS voice playback directly from the interface.
 - **Generation History Drawer:** Search and re-watch previously generated explainer videos stored locally in `output/`.
+
+---
+
+## Screenshots
+
+<!-- 📸 SCREENSHOT PLACEHOLDERS — Drag & drop your screenshots below or update image paths -->
+
+### Web Studio Dashboard
+![Web Studio Dashboard](docs/screenshots/web_studio_dashboard.png)
+
+### Real-Time Agent Activity Tracker
+![Agent Activity Tracker](docs/screenshots/agent_activity.png)
+
+### Live Video Player & Dynamic Karaoke Captions
+![Video Player and Subtitles](docs/screenshots/video_player.png)
+
+### Motion Graphic Templates & Canvas Layouts
+![Visual Templates & Canvas Showcase](docs/screenshots/templates_canvas.png)
 
 ---
 
@@ -315,6 +334,7 @@ snapvid/
 │   └── app.js                 # SSE consumer, history manager & settings logic
 ├── tests/                     # Comprehensive automated test suite (74 tests)
 ├── docs/                      # Technical documentation & NPU profiling tools
+│   └── screenshots/           # Screenshot and demo media assets
 ├── scripts/                   # Pitch decks & project description generators
 ├── run.py                     # Headless CLI entry point
 ├── requirements.txt           # Python dependency specifications
