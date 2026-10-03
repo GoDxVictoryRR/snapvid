@@ -86,20 +86,22 @@ def render_frames(
     heading_y = card_y + 30
     max_heading_w = card_w - 64
 
-    h2_size = 32 if ratio == "9:16" else SIZES["h2"]
-    body_size = 20 if ratio == "9:16" else (22 if ratio == "4:3" else SIZES["body"])
+    h2_size = 36 if ratio == "9:16" else (40 if ratio == "4:3" else 46)
+    if ratio == "9:16":
+        body_size = 24
+    elif ratio == "4:3":
+        body_size = 26
+    else:
+        body_size = 32 if len(items) <= 3 else 28
 
     font_heading = load_font(bold=True, size=h2_size)
     heading_lines = wrap_text(heading_text, font_heading, max_heading_w) if heading_text else []
     h_line_h = int(h2_size * 1.25)
     total_h_h = len(heading_lines) * h_line_h
 
-    items_start_y = heading_y + total_h_h + (24 if heading_lines else 10)
-    avail_h = card_h - (items_start_y - card_y) - 24
-
-    icon_w = 24
-    text_x = heading_x + icon_w + 14
-    max_item_text_w = (card_x + card_w - 32) - text_x
+    icon_w = 26
+    text_x = heading_x + icon_w + 16
+    max_item_text_w = (card_x + card_w - 36) - text_x
 
     parsed_items = []
     for it in items:
@@ -108,17 +110,26 @@ def render_frames(
         else:
             parsed_items.append(("circle", str(it).strip()))
 
-    while body_size >= 16:
+    avail_h = card_h - 100
+    while body_size >= 18:
         font_item = load_font(bold=False, size=body_size)
         item_line_h = int(body_size * 1.35)
         wrapped_items = [wrap_text(txt, font_item, max_item_text_w) for _, txt in parsed_items]
         total_lines = sum(max(1, len(wl)) for wl in wrapped_items)
         n = max(1, len(parsed_items))
-        gap = max(8, min(24, (avail_h - total_lines * item_line_h) // max(1, n)))
+        gap = max(12, min(32, (avail_h - total_lines * item_line_h) // max(1, n)))
         needed_h = total_lines * item_line_h + (n - 1) * gap
-        if needed_h <= avail_h or body_size <= 16:
+        if needed_h <= avail_h or body_size <= 18:
             break
         body_size -= 2
+
+    # Vertical centering inside card
+    total_items_h = sum(max(1, len(wl)) * item_line_h for wl in wrapped_items) + (max(1, len(wrapped_items)) - 1) * gap
+    total_content_h = total_h_h + (24 if heading_lines else 0) + total_items_h
+    top_pad = max(30, (card_h - total_content_h) // 2) if card_h > total_content_h + 40 else 30
+
+    heading_y = card_y + top_pad
+    items_start_y = heading_y + total_h_h + (28 if heading_lines else 0)
 
     item_offsets: list[int] = []
     item_heights: list[int] = []

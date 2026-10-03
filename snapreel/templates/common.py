@@ -34,10 +34,10 @@ BOLD_FONT_PATH = ASSETS_DIR / "Inter-Bold.ttf"
 SIZES = {
     "display": 72,   # single large stat / quote
     "h1": 56,        # title heading
-    "h2": 42,        # section heading
-    "h3": 32,        # card heading
-    "body": 28,      # body text / bullets
-    "caption": 22,   # label / metadata
+    "h2": 44,        # section heading
+    "h3": 34,        # card heading
+    "body": 30,      # body text / bullets
+    "caption": 24,   # label / metadata
     "mono": 24,      # code
 }
 
@@ -300,8 +300,8 @@ def prepare_kinetic_captions(
 
     w, h = get_canvas_size()
     ratio = get_canvas_ratio()
-    fsize = font_size or (18 if ratio == "9:16" else 20)
-    font = load_font(bold=False, size=fsize)
+    fsize = font_size or (22 if ratio == "9:16" else 24)
+    font = load_font(bold=True, size=fsize)
 
     raw_words = narration.strip().split()
     if not raw_words:
@@ -336,8 +336,8 @@ def prepare_kinetic_captions(
     max_words_per_phrase = 4 if ratio == "9:16" else 5
 
     space_w = font.getbbox(" ")[2] - font.getbbox(" ")[0]
-    bh = fsize + 18
-    by = h - bh - (110 if ratio == "9:16" else 22)
+    bh = fsize + 20
+    by = h - bh - (110 if ratio == "9:16" else 26)
 
     phrases = []
     cur_words = []
@@ -449,7 +449,7 @@ def draw_kinetic_captions(
         width=1,
     )
 
-    text_y = 8
+    text_y = max(4, (bh - cached_data["fsize"]) // 2 - 2)
     for i, (word, (st, en), ww, rx) in enumerate(zip(words, spans, widths, rel_xs)):
         if t >= en:
             # Already spoken: crisp bright white
@@ -573,12 +573,14 @@ def wrap_text(text: str, font: ImageFont.ImageFont | ImageFont.FreeTypeFont, max
     return lines
 
 
-@functools.lru_cache(maxsize=32)
+@functools.lru_cache(maxsize=64)
 def load_font(bold: bool = False, size: int = 36, monospace: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load font by style and size with fallback to default PIL font."""
+    """Load font by style and size with fallback to system fonts and PIL scalable font."""
     if monospace:
         mono_candidates = [
             ASSETS_DIR / "JetBrainsMono-Regular.ttf",
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"),
             Path("C:/Windows/Fonts/consola.ttf"),
             Path("C:/Windows/Fonts/cour.ttf"),
         ]
@@ -596,8 +598,26 @@ def load_font(bold: bool = False, size: int = 36, monospace: bool = False) -> Im
         except Exception as exc:
             logger.warning("Failed to load font from %s: %s", target_path, exc)
 
-    logger.warning("Font not found or failed to load. Falling back to default font.")
-    return ImageFont.load_default()
+    # Fallback to system fonts (Linux / Windows / macOS)
+    system_candidates = [
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        Path("C:/Windows/Fonts/segoeuib.ttf" if bold else "C:/Windows/Fonts/segoeui.ttf"),
+        Path("C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf"),
+        Path("/System/Library/Fonts/SFPro-Bold.ttf" if bold else "/System/Library/Fonts/SFPro.ttf"),
+    ]
+    for sp in system_candidates:
+        if sp.exists():
+            try:
+                return ImageFont.truetype(str(sp), size)
+            except Exception:
+                pass
+
+    logger.warning("Font not found or failed to load. Falling back to default font (size=%d).", size)
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def draw_gradient_bar(

@@ -48,8 +48,16 @@ def render_frames(
     heading_y = card_y + 30
     max_heading_w = card_w - 64
 
-    h2_size = 32 if ratio == "9:16" else SIZES["h2"]
-    body_size = 20 if ratio == "9:16" else (22 if ratio == "4:3" else SIZES["body"])
+    n_items = max(1, len(items))
+    if n_items <= 3:
+        h2_size = 36 if ratio == "9:16" else 48
+        body_size = 24 if ratio == "9:16" else 34
+    elif n_items == 4:
+        h2_size = 34 if ratio == "9:16" else 46
+        body_size = 22 if ratio == "9:16" else 30
+    else:
+        h2_size = 30 if ratio == "9:16" else 42
+        body_size = 20 if ratio == "9:16" else 26
 
     font_heading = load_font(bold=True, size=h2_size)
     heading_lines = wrap_text(heading_text, font_heading, max_heading_w) if heading_text else []
@@ -70,12 +78,18 @@ def render_frames(
         bullet_line_h = int(body_size * 1.35)
         wrapped_items = [wrap_text(it, font_bullet, max_bullet_w) for it in items]
         total_lines = sum(max(1, len(wl)) for wl in wrapped_items)
-        n_items = max(1, len(items))
-        gap = max(8, min(24, (avail_h - total_lines * bullet_line_h) // max(1, n_items)))
+        gap = max(12, min(36, (avail_h - total_lines * bullet_line_h) // max(1, n_items)))
         needed_h = total_lines * bullet_line_h + (n_items - 1) * gap
         if needed_h <= avail_h or body_size <= 16:
             break
         body_size -= 2
+
+    # Center content vertically within the card when there's excess space
+    total_content_h = total_h_h + (24 if heading_lines else 0) + needed_h
+    if total_content_h < card_h - 40:
+        v_offset = (card_h - total_content_h) // 2
+        heading_y = card_y + max(20, v_offset)
+        bullets_start_y = heading_y + total_h_h + (24 if heading_lines else 10)
 
     # Compute vertical offsets for each bullet item
     item_offsets: list[int] = []

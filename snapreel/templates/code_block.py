@@ -93,22 +93,25 @@ def render_frames(
     h_line_h = int(h3_size * 1.25)
     heading_lines = wrap_text(heading_text, font_heading, panel_w) if heading_text else []
 
-    if heading_lines:
-        heading_y = 25
-        panel_y = heading_y + len(heading_lines) * h_line_h + 14
-        panel_h = h - panel_y - (25 if ratio == "9:16" else 40)
-    else:
-        heading_y = 0
-        panel_y = 50 if ratio == "9:16" else 65
-        panel_h = h - (panel_y * 2)
-
     line_h = 28 if ratio == "9:16" else 34
     inner_pad_x = 18 if ratio == "9:16" else 24
     inner_pad_y = 44 if ratio == "9:16" else 48
     line_num_w = 32 if ratio == "9:16" else 40
-    visible_code_h = max(20, panel_h - inner_pad_y - 16)
     total_code_h = len(lines) * line_h
+
+    max_panel_h = h - (100 if heading_lines else 80)
+    needed_panel_h = inner_pad_y + total_code_h + 30
+    panel_h = min(max_panel_h, max(180, needed_panel_h))
+    visible_code_h = max(20, panel_h - inner_pad_y - 16)
     max_scroll = max(0, total_code_h - visible_code_h + 20)
+
+    total_block_h = (len(heading_lines) * h_line_h + 14 if heading_lines else 0) + panel_h
+    if total_block_h < h - 60:
+        heading_y = max(25, (h - total_block_h) // 2 - 10)
+        panel_y = heading_y + (len(heading_lines) * h_line_h + 14 if heading_lines else 0)
+    else:
+        heading_y = 25 if heading_lines else 0
+        panel_y = heading_y + (len(heading_lines) * h_line_h + 14 if heading_lines else 50)
 
     # Pre-render code surface with line numbers
     surf_w = max(10, panel_w - inner_pad_x * 2)

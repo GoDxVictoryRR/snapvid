@@ -179,7 +179,8 @@ def _run_job(topic: str, out_path: str, job_id: str, settings: dict[str, Any] | 
             try:
                 wav_paths, audio_durations = prepare_audio(script, str(wav_dir), engine=tts_engine, voice=tts_voice)
                 script = reconcile_durations(script, audio_durations, min_tail_padding=0.8, max_trailing_pause=1.4, target_duration=float(target_duration))
-                script.total_duration = _quantize_frames(script.scenes, float(target_duration))
+                actual_target = max(float(target_duration), sum(s.duration for s in script.scenes))
+                script.total_duration = _quantize_frames(script.scenes, actual_target)
                 scene_durations = [s.duration for s in script.scenes]
                 concat_audio(wav_paths, scene_durations, wav_path)
                 if Path(wav_path).exists() and Path(wav_path).stat().st_size > 44:

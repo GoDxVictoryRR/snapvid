@@ -46,8 +46,13 @@ def render_frames(
     w, h = get_canvas_size()
     ratio = get_canvas_ratio()
 
-    h2_size = 32 if ratio == "9:16" else SIZES["h2"]
-    caption_size = 18 if ratio == "9:16" else SIZES["caption"]
+    n = max(1, count)
+    if n <= 4:
+        h2_size = 36 if ratio == "9:16" else 48
+        caption_size = 20 if ratio == "9:16" else 26
+    else:
+        h2_size = 32 if ratio == "9:16" else SIZES["h2"]
+        caption_size = 18 if ratio == "9:16" else SIZES["caption"]
 
     font_heading = load_font(bold=True, size=h2_size)
     font_caption = load_font(bold=False, size=caption_size)
@@ -59,13 +64,19 @@ def render_frames(
 
     left_margin = int(w * 0.28) if ratio == "9:16" else int(w * 0.26)
     max_bar_w = int(w * 0.44) if ratio == "9:16" else int(w * 0.52)
-    heading_y = 35 if ratio == "9:16" else 45
-    start_y = heading_y + total_h_h + (35 if heading_lines else 20)
 
-    avail_h = h - start_y - 60
-    n = max(1, count)
-    bar_h = min(44, max(22, (avail_h // n) - 12))
-    bar_gap = max(8, min(14, (avail_h - n * bar_h) // max(1, n)))
+    avail_h = h - total_h_h - 120
+    bar_h = min(52, max(24, (avail_h // n) - 16))
+    bar_gap = max(12, min(32, (avail_h - n * bar_h) // max(1, n)))
+    total_bars_h = n * bar_h + (n - 1) * bar_gap
+
+    total_chart_h = total_h_h + (30 if heading_lines else 0) + total_bars_h
+    if total_chart_h < h - 80:
+        heading_y = max(35, (h - total_chart_h) // 2 - 10)
+        start_y = heading_y + total_h_h + (30 if heading_lines else 0)
+    else:
+        heading_y = 35 if ratio == "9:16" else 45
+        start_y = heading_y + total_h_h + (30 if heading_lines else 20)
 
     frames: list[Image.Image] = []
 

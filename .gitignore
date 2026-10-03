@@ -2,7 +2,6 @@
 __pycache__/
 *.pyc
 output/
-snapreel/assets/*.ttf
 .venv/
 .agents/
 .vscode/
@@ -11,4 +10,4 @@ scratch/
 pyrightconfig.json
 dummy.wav
 *.wav
-
+vid/

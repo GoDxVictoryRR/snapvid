@@ -60,9 +60,9 @@ def render_frames(
     frames: list[Image.Image] = []
     anim_duration = max(0.1, 0.75 * duration)
 
-    ring_r = min(180, int(min(w, h) * 0.28))
+    ring_r = min(155, int(min(w, h) * 0.25))
     center_x = w // 2
-    center_y = h // 2 + 10
+    center_y = h // 2 + 25
 
     for f in range(total_frames):
         t = f / fps
@@ -99,14 +99,28 @@ def render_frames(
         num_h = num_bbox[3] - num_bbox[1]
 
         unit_w, unit_h = 0.0, 0.0
+        unit_top_offset = 0.0
         if unit_text:
             unit_bbox = draw.textbbox((0, 0), unit_text, font=font_unit)
             unit_w = unit_bbox[2] - unit_bbox[0]
             unit_h = unit_bbox[3] - unit_bbox[1]
+            unit_top_offset = unit_bbox[1]
 
-        total_row_w = num_w + (unit_w + 14 if unit_text else 0)
-        num_x = max(16, min(w - 16 - total_row_w, int(center_x - (total_row_w // 2))))
-        num_y = int(center_y - (num_h // 2))
+        is_short_unit = len(unit_text) <= 3
+        if is_short_unit:
+            total_row_w = num_w + (unit_w + 10 if unit_text else 0)
+            num_x = int(center_x - (total_row_w // 2))
+            num_y = int(center_y - (num_h // 2) - num_bbox[1])
+            unit_x = int(num_x + num_w + 10)
+            unit_y = int(num_y + (num_bbox[3] - (unit_bbox[3] if unit_text else 0)))
+        else:
+            gap_h = 16
+            total_visual_h = num_h + (gap_h + unit_h if unit_text else 0)
+            top_visual_y = int(center_y - (total_visual_h // 2))
+            num_x = int(center_x - (num_w // 2) - num_bbox[0])
+            num_y = int(top_visual_y - num_bbox[1])
+            unit_x = int(center_x - (unit_w // 2) - (unit_bbox[0] if unit_text else 0))
+            unit_y = int(top_visual_y + num_h + gap_h - unit_top_offset)
 
         # Draw number
         draw_text_shadowed(
@@ -118,31 +132,29 @@ def render_frames(
             (0, 0, 0, 140),
         )
 
-        # Draw unit inline right, aligned top
+        # Draw unit
         if unit_text:
-            unit_x = int(num_x + num_w + 14)
-            unit_y = num_y + 8
             draw_text_shadowed(
                 draw,
                 (unit_x, unit_y),
                 unit_text,
                 font_unit,
-                hex_to_rgba(PALETTE["text_mid"], 0.9),
+                hex_to_rgba(PALETTE["text_mid"], 0.95),
                 (0, 0, 0, 120),
             )
 
-        # 3. Label: 60px above number
+        # 3. Label: cleanly centered above the radial ring
         if label_text:
             lbl_bbox = draw.textbbox((0, 0), label_text, font=font_label)
             lbl_w = lbl_bbox[2] - lbl_bbox[0]
             lbl_x = max(16, min(w - 16 - lbl_w, int(center_x - (lbl_w // 2))))
-            lbl_y = num_y - 60
+            lbl_y = center_y - ring_r - 46
             draw_text_shadowed(
                 draw,
                 (lbl_x, lbl_y),
                 label_text,
                 font_label,
-                hex_to_rgba(PALETTE["text_mid"], 1.0),
+                hex_to_rgba(PALETTE["text_hi"], 1.0),
                 (0, 0, 0, 120),
             )
 

@@ -33,17 +33,18 @@ def render_frames(
 ) -> list[Image.Image]:
     """Render quote card supporting centered and card styles with boundary protection."""
     total_frames = max(1, math.ceil(duration * fps))
-    quote_text = f'"{str(data.get("text") or "").strip()}"'
-    attribution = str(data.get("attribution") or "").strip()
+    raw_quote = str(data.get("text") or data.get("quote") or "").strip().strip('"').strip('“').strip('”')
+    quote_text = f'"{raw_quote}"'
+    attribution = str(data.get("attribution") or data.get("author") or "").strip()
     style = str(data.get("style") or "centered").lower()
 
     w, h = get_canvas_size()
     ratio = get_canvas_ratio()
 
-    q_size = 28 if ratio == "9:16" else (SIZES["h2"] - 4)
+    q_size = 30 if ratio == "9:16" else 40
     font_quote = load_font(bold=False, size=q_size)
-    font_attr = load_font(bold=False, size=18 if ratio == "9:16" else SIZES["caption"])
-    font_mark = load_font(bold=True, size=int(SIZES["display"] * (1.1 if ratio == "9:16" else 1.5)))
+    font_attr = load_font(bold=False, size=20 if ratio == "9:16" else 24)
+    font_mark = load_font(bold=True, size=int(SIZES["display"] * (1.1 if ratio == "9:16" else 1.4)))
 
     max_w = min(1000, w - (80 if ratio == "9:16" else 160))
     lines = wrap_text(quote_text, font_quote, max_w)
@@ -74,9 +75,9 @@ def render_frames(
         p = min(1.0, t / 0.6) if duration > 0 else 1.0
         e = ease_out_cubic(p)
 
-        # Large quotation mark "❝"
-        mark_alpha = 0.15 * e
-        draw.text((36 if ratio == "9:16" else 60, start_y - 60), "❝", fill=hex_to_rgba(PALETTE["accent1"], mark_alpha), font=font_mark)
+        # Large quotation mark "“"
+        mark_alpha = 0.22 * e
+        draw.text((36 if ratio == "9:16" else 60, start_y - 65), "“", fill=hex_to_rgba(PALETTE["accent1"], mark_alpha), font=font_mark)
 
         # Quote text lines
         for i, line in enumerate(lines):

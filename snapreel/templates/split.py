@@ -44,13 +44,14 @@ def render_frames(
     ratio = get_canvas_ratio()
     is_vertical = (ratio == "9:16")
 
-    h2_size = 30 if is_vertical else (32 if ratio == "4:3" else SIZES["h2"])
-    body_size = 20 if is_vertical else (22 if ratio == "4:3" else SIZES["body"] - 2)
+    h2_size = 32 if is_vertical else (34 if ratio == "4:3" else 38)
+    body_size = 22 if is_vertical else (24 if ratio == "4:3" else 28)
+    caption_size = 18 if is_vertical else 22
 
     font_heading = load_font(bold=True, size=h2_size)
     font_body = load_font(bold=False, size=body_size)
-    font_caption = load_font(bold=False, size=SIZES["caption"])
-    font_num = load_font(bold=True, size=48 if is_vertical else 60)
+    font_caption = load_font(bold=False, size=caption_size)
+    font_num = load_font(bold=True, size=52 if is_vertical else 64)
 
     if is_vertical:
         card_w = w - 72
@@ -77,14 +78,37 @@ def render_frames(
         right_w = w - split_x - margin - 20
         right_h = h - 120
 
+    # Determine left and right text contents
+    left_raw = str(data.get("left") or "").strip()
+    right_raw = str(data.get("right") or "").strip()
+    if left_raw and right_raw:
+        left_content = left_raw
+        right_content = right_raw
+    else:
+        left_content = body_text or left_raw
+        right_content = right_raw or str(visual_data.get("text") or visual_data.get("body") or "").strip()
+
     # Wrap heading and body text inside left card
-    max_text_w = left_w - 48
+    max_text_w = left_w - 56
     heading_lines = wrap_text(heading_text, font_heading, max_text_w) if heading_text else []
     h_line_h = int(h2_size * 1.25)
     total_h_h = len(heading_lines) * h_line_h
 
-    body_lines = wrap_text(body_text, font_body, max_text_w) if body_text else []
-    b_line_h = int(body_size * 1.35)
+    left_lines = wrap_text(left_content, font_body, max_text_w) if left_content else []
+    b_line_h = int(body_size * 1.4)
+    total_b_h = len(left_lines) * b_line_h
+
+    # Vertical centering inside left card
+    needed_left_h = total_h_h + (18 if heading_lines and left_lines else 0) + total_b_h
+    left_top_pad = max(26, (left_h - needed_left_h) // 2) if left_h > needed_left_h + 40 else 26
+    hy = left_y + left_top_pad
+    by_start = hy + total_h_h + (18 if heading_lines else 0)
+
+    # Wrap right text if needed
+    max_right_w = right_w - 56
+    right_lines = wrap_text(right_content, font_body, max_right_w) if right_content else []
+    total_r_h = len(right_lines) * b_line_h
+    right_top_pad = max(26, (right_h - total_r_h) // 2) if right_h > total_r_h + 40 else 26
 
     frames: list[Image.Image] = []
 
@@ -99,8 +123,7 @@ def render_frames(
         p = min(1.0, t / 0.4) if duration > 0 else 1.0
         e = ease_out_cubic(p)
 
-        hx = left_x + 24
-        hy = left_y + 26
+        hx = left_x + 28
 
         # Draw wrapped heading lines
         h_col = hex_to_rgba(PALETTE["text_hi"], e)
@@ -109,9 +132,8 @@ def render_frames(
             draw_text_shadowed(draw, (hx, hy + i * h_line_h), hl, font_heading, h_col, s_col)
 
         # Draw wrapped body lines
-        by_start = hy + total_h_h + (18 if heading_lines else 0)
         b_col = hex_to_rgba(PALETTE["text_mid"], e)
-        for i, bl in enumerate(body_lines):
+        for i, bl in enumerate(left_lines):
             cur_by = by_start + i * b_line_h
             if cur_by + b_line_h <= left_y + left_h - 16:
                 draw.text((hx, cur_by), bl, fill=b_col, font=font_body)
@@ -179,20 +201,23 @@ def render_frames(
             labels = visual_data.get("labels", ["A", "B", "C"])[:4]
             vals = [float(v) for v in visual_data.get("values", [10, 20, 30])[:len(labels)]]
             max_v = max(vals) if vals and max(vals) > 0 else 1.0
-            by = right_y + 36
-            max_lbl_w = 80
+            
+            # Center bars vertically inside right card
+            n_bars = max(1, len(labels))
+            total_bars_h = n_bars * 52
+            by = right_y + max(24, (right_h - total_bars_h) // 2)
+            max_lbl_w = 90
             bw_max = max(60, right_w - max_lbl_w - 80)
 
             for i, (lbl, val) in enumerate(zip(labels, vals)):
-                iy = by + i * 48
-                # Label truncated if too long
+                iy = by + i * 52
                 lbl_text = str(lbl)
                 tb = r_draw.textbbox((0, 0), lbl_text, font=font_caption)
                 if (tb[2] - tb[0]) > max_lbl_w:
                     lbl_text = lbl_text[:8] + ".."
 
-                r_draw.text((right_x + 20, iy + 6), lbl_text, fill=hex_to_rgba(PALETTE["text_mid"], 1.0), font=font_caption)
-                b_start = 0.2 + 0.2 * i
+                r_draw.text((right_x + 24, iy + 4), lbl_text, fill=hex_to_rgba(PALETTE["text_mid"], 1.0), font=font_caption)
+                b_start = 0.2 + 0.15 * i
                 b_p = min(1.0, max(0.0, (t - b_start) / 0.55)) if t >= b_start else 0.0
                 b_w = max(4, int((val / max_v) * bw_max * ease_out_back(b_p)))
                 draw_gradient_bar(
@@ -200,12 +225,44 @@ def render_frames(
                     x=right_x + max_lbl_w + 24,
                     y=iy,
                     w=b_w,
-                    h=26,
+                    h=28,
                     start_hex=PALETTE["accent1"],
                     end_hex=PALETTE["accent2"],
                     alpha=1.0,
                     radius=4,
                 )
+
+        elif visual_data.get("value") or visual_data.get("metric"):
+            # Metric / Stat visual
+            metric_val = str(visual_data.get("value") or visual_data.get("metric") or "").strip()
+            metric_lbl = str(visual_data.get("label") or visual_data.get("subtext") or "").strip()
+            cy = right_y + right_h // 2 - 20
+            if metric_lbl:
+                r_draw.text((right_x + 32, cy - 36), metric_lbl, fill=hex_to_rgba(PALETTE["text_low"], e), font=font_caption)
+            draw_text_shadowed(r_draw, (right_x + 32, cy), metric_val, font_num, hex_to_rgba(PALETTE["accent1"], e))
+
+        elif right_lines:
+            # Multi-line text in right card
+            rx = right_x + 28
+            r_col = hex_to_rgba(PALETTE["text_hi"], e)
+            for i, rl in enumerate(right_lines):
+                cur_ry = right_y + right_top_pad + i * b_line_h
+                if cur_ry + b_line_h <= right_y + right_h - 16:
+                    draw_text_shadowed(r_draw, (rx, cur_ry), rl, font_body, r_col)
+
+        else:
+            # Clean takeaway highlight placeholder
+            accent_bar_y = right_y + right_h // 2 - 15
+            draw_gradient_bar(
+                draw=r_draw,
+                x=right_x + 32,
+                y=accent_bar_y,
+                w=min(120, right_w - 64),
+                h=4,
+                start_hex=PALETTE["accent1"],
+                end_hex=PALETTE["accent2"],
+                alpha=0.8,
+            )
 
         canvas = apply_grain(canvas, strength=0.015, frame_idx=f)
         out_f = canvas.convert("RGB")
